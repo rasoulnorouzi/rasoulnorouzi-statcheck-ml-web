@@ -24,9 +24,9 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/rasoulnorouzi/statcheck-ml-web"
+    "url": "https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web"
   },
-  "homepage": "https://rasoulnorouzi.github.io/statcheck-ml-web/",
+  "homepage": "https://rasoulnorouzi.github.io/rasoulnorouzi-statcheck-ml-web/",
   "dependencies": {
     "onnxruntime-web": "^1.30.0",
     "pdfjs-dist": "^5.4.624"

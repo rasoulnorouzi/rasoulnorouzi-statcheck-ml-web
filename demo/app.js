@@ -100,11 +100,13 @@ function renderResults(results) {
       r.computed_p == null ? '' : r.computed_p.toFixed(6),
       r.verdict ?? '',
     ];
-    for (const value of cells) {
+    const numeric = new Set([0, 3, 6, 7]);      // line, statistic, reported p, computed p
+    cells.forEach((value, i) => {
       const cell = document.createElement('td');
       cell.textContent = value;
+      if (numeric.has(i)) cell.className = 'num';
       row.appendChild(cell);
-    }
+    });
     const verdictCell = row.lastElementChild;
     verdictCell.className = `verdict verdict-${r.verdict ?? 'unknown'}`;
     resultsBody.appendChild(row);

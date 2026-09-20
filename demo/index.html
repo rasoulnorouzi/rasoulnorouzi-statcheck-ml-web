@@ -5,88 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>statcheck-ml</title>
 <style>
+  /* One column of monospace text, like a terminal transcript. No boxes,
+     no colour beyond the verdicts, dark or light with the system. */
   :root {
     color-scheme: light dark;
-    --border: #ccc;
-    --bg-drop: #fafafa;
-    --consistent: #2f7d32;
-    --inconsistent: #a83232;
-    --decision-error: #a83232;
-    --undecidable: #6b6b6b;
-  }
-  * { box-sizing: border-box; }
-  body {
-    font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
-    font-size: 14px;
-    line-height: 1.4;
-    margin: 0;
-    padding: 1.5rem;
-    max-width: 60rem;
-  }
-  h1 {
-    font-size: 1.1rem;
-    margin: 0 0 1rem 0;
-  }
-  #drop-zone {
-    border: 1px dashed var(--border);
-    background: var(--bg-drop);
-    padding: 1.5rem;
-    text-align: center;
-    cursor: pointer;
-  }
-  #drop-zone.drag-over {
-    border-style: solid;
-  }
-  #file-input {
-    display: none;
-  }
-  #status-line {
-    margin: 0.75rem 0;
-    white-space: pre-wrap;
-  }
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin-top: 0.75rem;
-  }
-  th, td {
-    border: 1px solid var(--border);
-    padding: 0.3rem 0.5rem;
-    text-align: left;
-    white-space: nowrap;
-  }
-  th {
-    font-weight: normal;
-    background: var(--bg-drop);
-  }
-  .verdict-consistent { color: var(--consistent); }
-  .verdict-inconsistent { color: var(--inconsistent); }
-  .verdict-decision_error { color: var(--decision-error); font-weight: bold; }
-  .verdict-undecidable { color: var(--undecidable); }
-  #download-json {
-    display: inline-block;
-    margin-top: 0.75rem;
-  }
-  footer {
-    margin-top: 2rem;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--border);
-    font-size: 0.85rem;
-  }
-  footer a {
-    color: inherit;
+    --fg: #222; --dim: #777; --rule: #bbb; --bg: #fff;
+    --ok: #2f7d32; --bad: #a83232; --none: #777;
   }
   @media (prefers-color-scheme: dark) {
-    :root {
-      --border: #444;
-      --bg-drop: #1c1c1c;
-      --consistent: #6fcf73;
-      --inconsistent: #e08080;
-      --decision-error: #e08080;
-      --undecidable: #a0a0a0;
-    }
-    body { background: #111; color: #ddd; }
+    :root { --fg: #d6d6d6; --dim: #8a8a8a; --rule: #3a3a3a; --bg: #101010;
+            --ok: #7fd082; --bad: #e08080; --none: #9a9a9a; }
   }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); }
+  body {
+    max-width: 96ch; margin: 2rem auto; padding: 0 1rem;
+    font: 14px/1.5 ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+    color: var(--fg); background: var(--bg);
+  }
+  h1 { font-size: 14px; font-weight: bold; margin: 0 0 0.25rem; }
+  h1::before { content: "$ "; color: var(--dim); }
+  p { margin: 0.25rem 0; }
+  .dim { color: var(--dim); }
+  #drop-zone {
+    margin: 1.25rem 0 0.75rem; padding: 0.75rem 0;
+    border-top: 1px dashed var(--rule); border-bottom: 1px dashed var(--rule);
+    cursor: pointer; user-select: none;
+  }
+  #drop-zone::before { content: "> "; color: var(--dim); }
+  #drop-zone.drag-over { border-style: solid; }
+  #file-input { display: none; }
+  #status-line::before { content: "> "; color: var(--dim); }
+  #status-line { white-space: pre-wrap; }
+  table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
+  th, td { text-align: left; padding: 0.1rem 1ch 0.1rem 0; vertical-align: top; white-space: nowrap; }
+  th { font-weight: normal; color: var(--dim); border-bottom: 1px solid var(--rule); }
+  td.num, th.num { text-align: right; }
+  .verdict-consistent { color: var(--ok); }
+  .verdict-inconsistent, .verdict-decision_error { color: var(--bad); }
+  .verdict-decision_error { font-weight: bold; }
+  .verdict-undecidable { color: var(--none); }
+  #download-json { display: inline-block; margin-top: 0.75rem; color: inherit; }
+  #empty-note { margin-top: 1rem; color: var(--dim); }
+  footer { margin-top: 2.5rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); color: var(--dim); }
+  footer a, a { color: inherit; }
 </style>
 <script type="importmap">
 {
@@ -98,28 +60,33 @@
 </head>
 <body>
 <h1>statcheck-ml</h1>
+<p>Finds reported test results with a character model. Checks each p-value with
+closed-form arithmetic. The model never judges; the verdict is a computation.</p>
+<p class="dim">Runs in this tab. The PDF does not leave your machine. Labels behind the
+model are bronze (three rater agents, no human gold set); read the numbers with that
+in mind.</p>
 
 <div id="drop-zone">
-  drop a PDF here, or click to choose a file
+  drop a PDF here, or click to choose one
   <input id="file-input" type="file" accept="application/pdf,.pdf">
 </div>
 
 <p id="status-line">loading&hellip;</p>
 
-<a id="download-json" href="" download="statcheck-ml-report.json" hidden>download JSON</a>
+<a id="download-json" href="" download="statcheck-ml-report.json" hidden>[ download JSON ]</a>
 
 <p id="empty-note" hidden>no results found.</p>
 <table id="results-table" hidden>
   <thead>
     <tr>
-      <th>line</th>
+      <th class="num">line</th>
       <th>source</th>
       <th>test</th>
-      <th>statistic</th>
+      <th class="num">statistic</th>
       <th>df</th>
-      <th>operator</th>
-      <th>reported p</th>
-      <th>computed p</th>
+      <th>op</th>
+      <th class="num">reported p</th>
+      <th class="num">computed p</th>
       <th>verdict</th>
     </tr>
   </thead>
@@ -128,10 +95,10 @@
 
 <footer>
   <p>
-    <a href="https://rasoulnorouzi.github.io/statcheck-ml-web/">https://rasoulnorouzi.github.io/statcheck-ml-web/</a><br>
-    <a href="https://github.com/rasoulnorouzi/statcheck-ml-web">statcheck-ml-web</a> &middot;
-    <a href="https://github.com/rasoulnorouzi/statcheck-ml-web/blob/main/docs/TUTORIAL.md">tutorial</a> &middot;
-    <a href="https://github.com/rasoulnorouzi/ml-statcheck">the mother repository</a>
+    <a href="https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web">source</a> &middot;
+    <a href="https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/blob/main/docs/TUTORIAL.md">tutorial</a> &middot;
+    <a href="https://github.com/rasoulnorouzi/ml-statcheck">mother repository: models, dataset, report</a> &middot;
+    GPL-3
   </p>
 </footer>
 

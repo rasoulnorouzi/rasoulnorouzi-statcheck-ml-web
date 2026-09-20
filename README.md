@@ -3,12 +3,12 @@
 statcheck-ml is the browser and npm port of statcheck-ml. It reads a
 statistical result from text or from a PDF, and checks its p-value against
 the test statistic, without sending anything to a server. The demo page is
-at https://rasoulnorouzi.github.io/statcheck-ml-web/. For a full
+at https://rasoulnorouzi.github.io/rasoulnorouzi-statcheck-ml-web/. For a full
 walkthrough, with every Node example executed against this repository, see
 [`docs/TUTORIAL.md`](docs/TUTORIAL.md).
 
-[![test](https://github.com/rasoulnorouzi/statcheck-ml-web/actions/workflows/test.yml/badge.svg)](https://github.com/rasoulnorouzi/statcheck-ml-web/actions/workflows/test.yml)
-[![pages](https://github.com/rasoulnorouzi/statcheck-ml-web/actions/workflows/pages.yml/badge.svg)](https://github.com/rasoulnorouzi/statcheck-ml-web/actions/workflows/pages.yml)
+[![test](https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/actions/workflows/test.yml/badge.svg)](https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/actions/workflows/test.yml)
+[![pages](https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/actions/workflows/pages.yml/badge.svg)](https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/actions/workflows/pages.yml)
 
 ## Install
 
@@ -17,7 +17,7 @@ walkthrough, with every Node example executed against this repository, see
 This works when the package is published. Until then, install it from the
 repository:
 
-    npm install github:rasoulnorouzi/statcheck-ml-web
+    npm install github:rasoulnorouzi/rasoulnorouzi-statcheck-ml-web
 
 ## Usage
 

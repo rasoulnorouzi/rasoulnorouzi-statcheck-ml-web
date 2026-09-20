@@ -9,7 +9,7 @@ such and was not executed here.
 The other two ports have their own tutorials: Python at
 [`statcheck-ml/docs/TUTORIAL_PYTHON.md`](https://github.com/rasoulnorouzi/ml-statcheck/blob/main/statcheck-ml/docs/TUTORIAL_PYTHON.md),
 R at
-[`docs/TUTORIAL.md`](https://github.com/rasoulnorouzi/statcheck-ml-r/blob/main/docs/TUTORIAL.md).
+[`docs/TUTORIAL.md`](https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-r/blob/main/docs/TUTORIAL.md).
 All three read the same spec files and the same model. The
 [mother repository](https://github.com/rasoulnorouzi/ml-statcheck) and its
 [`results/REPORT.md`](https://github.com/rasoulnorouzi/ml-statcheck/blob/main/statcheck-ml/results/REPORT.md)
@@ -60,7 +60,7 @@ cascade reaches 0.922 (section 6).
 
 ### The page
 
-[`https://rasoulnorouzi.github.io/statcheck-ml-web/`](https://rasoulnorouzi.github.io/statcheck-ml-web/)
+[`https://rasoulnorouzi.github.io/rasoulnorouzi-statcheck-ml-web/`](https://rasoulnorouzi.github.io/rasoulnorouzi-statcheck-ml-web/)
 is `demo/index.html`, deployed by `.github/workflows/pages.yml` on every
 push to `main`. Open it, drop a PDF on the dashed box (or click the box and
 pick a file), and read the table that appears: one row per found result,
@@ -85,7 +85,7 @@ leaves the machine; there is no server in this port to send it to.
 works once the package is published. Until then, install straight from the
 repository:
 
-    npm install github:rasoulnorouzi/statcheck-ml-web
+    npm install github:rasoulnorouzi/rasoulnorouzi-statcheck-ml-web
 
 Both forms install `src/` and `kit/` (see `package.json`'s `files` field);
 nothing else in the repository ships. Section 3 below runs the installed
