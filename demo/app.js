@@ -20,6 +20,7 @@ import {
 } from '../src/index.js';
 import {
   MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
+  progressBar, queueLines,
 } from './support.js';
 
 // `loadKit`/`loadModel` build a fetch URL with `new URL(relPath, base)`,
@@ -47,6 +48,17 @@ const downloadsEl = document.getElementById('downloads');
 const downloadJsonLink = document.getElementById('download-json');
 const downloadCsvLink = document.getElementById('download-csv');
 const downloadMdLink = document.getElementById('download-md');
+const queueEl = document.getElementById('queue');
+const queueList = document.getElementById('queue-list');
+const runButton = document.getElementById('run-button');
+const clearButton = document.getElementById('clear-button');
+const progressEl = document.getElementById('progress');
+const progressBarEl = document.getElementById('progress-bar');
+const progressTextEl = document.getElementById('progress-text');
+
+//: The files chosen but not yet checked. Reading a PDF and running the model
+//: takes seconds per file, so the page waits for the reader to say when.
+let queued = [];
 
 let kit = null;
 let model = null;
@@ -127,6 +139,7 @@ function buildResultsTable(results) {
   const tbody = document.createElement('tbody');
   for (const r of results) {
     const row = document.createElement('tr');
+    row.className = 'result-row';
     row.append(
       td(formatNumber(r.page), true),
       td(formatNumber(r.line), true),
@@ -251,18 +264,10 @@ function resetRun() {
  * responsive and the status log reads in a stable order, then render the
  * summary table, the per-file reports, and the three downloads.
  */
-async function runFiles(fileList) {
-  const { accepted, rejected, overflow } = selectFiles(fileList, MAX_FILES);
+async function runFiles(accepted) {
   resetRun();
-
-  for (const f of rejected) appendStatusLine(`rejected ${f.name}: not a PDF`);
-  if (overflow > 0) {
-    appendStatusLine(`too many files: kept the first ${MAX_FILES}, dropped ${overflow} more`);
-  }
-  if (accepted.length === 0) {
-    appendStatusLine('no PDFs to check.');
-    return;
-  }
+  if (accepted.length === 0) return;
+  showProgress(0, accepted.length, 0);
 
   try {
     await loadOnce();
@@ -286,10 +291,12 @@ async function runFiles(fileList) {
         fileName: file.name,
         onProgress: (page, total) => {
           line.textContent = `[${i + 1}/${n}] ${file.name}: reading page ${page} of ${total} …`;
+          showProgress(i, n, page / total);
         },
       });
       const count = outcome.results.length;
       line.textContent = `[${i + 1}/${n}] ${file.name}: ${count} result${count === 1 ? '' : 's'}`;
+      showProgress(i + 1, n, 0);
       docReports.push({
         fileName: file.name,
         title: outcome.title,
@@ -300,6 +307,7 @@ async function runFiles(fileList) {
       });
     } catch (err) {
       line.textContent = `[${i + 1}/${n}] ${file.name}: could not read (${err.message})`;
+      showProgress(i + 1, n, 0);
       docReports.push({
         fileName: file.name,
         title: null,
@@ -312,6 +320,7 @@ async function runFiles(fileList) {
     }
   }
 
+  showProgress(n, n, 0);
   const seconds = ((performance.now() - startedAt) / 1000).toFixed(2);
   renderSummary(docReports);
   renderReports(docReports);
@@ -325,12 +334,71 @@ async function runFiles(fileList) {
   );
 }
 
-chooseButton.addEventListener('click', () => fileInput.click());
+function showProgress(done, total, withinFile) {
+  const { bar, text } = progressBar(done, total, withinFile);
+  progressBarEl.textContent = bar;
+  progressTextEl.textContent = text;
+  progressEl.hidden = false;
+}
+
+function renderQueue() {
+  queueList.textContent = '';
+  for (const line of queueLines(queued)) {
+    const div = document.createElement('div');
+    div.textContent = line;
+    queueList.appendChild(div);
+  }
+  queueEl.hidden = queued.length === 0;
+  runButton.textContent = queued.length === 1 ? '[ run ]' : `[ run ${queued.length} files ]`;
+}
+
+/** Take a new selection: report what was rejected, then wait for `[ run ]`. */
+function queueFiles(fileList) {
+  const { accepted, rejected, overflow } = selectFiles(fileList, MAX_FILES);
+  statusLog.textContent = '';
+  for (const f of rejected) appendStatusLine(`rejected ${f.name}: not a PDF`);
+  if (overflow > 0) {
+    appendStatusLine(`too many files: kept the first ${MAX_FILES}, dropped ${overflow} more`);
+  }
+  queued = accepted;
+  renderQueue();
+  if (accepted.length === 0) appendStatusLine('no PDFs to check.');
+}
+
+runButton.addEventListener('click', async () => {
+  if (queued.length === 0) return;
+  const files = queued;
+  runButton.disabled = true;
+  clearButton.disabled = true;
+  try {
+    await runFiles(files);
+  } finally {
+    runButton.disabled = false;
+    clearButton.disabled = false;
+  }
+});
+
+clearButton.addEventListener('click', () => {
+  queued = [];
+  renderQueue();
+  resetRun();
+  progressEl.hidden = true;
+});
+
+// The button sits inside the drop zone, and the zone opens the dialog too.
+// Without this the click would bubble and open it twice.
+chooseButton.addEventListener('click', (event) => {
+  event.stopPropagation();
+  fileInput.click();
+});
 
 fileInput.addEventListener('change', () => {
-  const { files } = fileInput;
-  fileInput.value = ''; // lets picking the same file(s) again re-fire 'change'
-  runFiles(files);
+  // `fileInput.files` is live: clearing the value empties the very list the
+  // handler is holding. Copy first, then clear so that picking the same file
+  // again still fires `change`.
+  const files = Array.from(fileInput.files);
+  fileInput.value = '';
+  queueFiles(files);
 });
 
 dropZone.addEventListener('click', () => fileInput.click());
@@ -347,7 +415,7 @@ dropZone.addEventListener('dragleave', () => {
 dropZone.addEventListener('drop', (event) => {
   event.preventDefault();
   dropZone.classList.remove('drag-over');
-  runFiles(event.dataTransfer.files);
+  queueFiles(event.dataTransfer.files);
 });
 
 setKitStatus('loading kit…');

@@ -176,3 +176,10 @@ GitHub Pages deploys the same repository root on every push to `main` (see
 `.github/workflows/pages.yml`), which is why the demo reads `../kit/` and
 `../src/index.js` as paths relative to itself rather than as a separate
 build output.
+
+Choosing or dropping PDFs queues them; the run starts when you press
+`[ run ]`, and a text progress bar tracks it. Up to ten files at a time. The
+page shows each paper's title, and every result carries its page, the exact
+sentence it came from, and a verdict; the same is in the JSON, CSV and
+Markdown downloads.
+

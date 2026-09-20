@@ -115,3 +115,24 @@ export function buildSummaryRow(fileName, outcome) {
     error: null,
   };
 }
+
+/**
+ * A progress bar drawn in characters, because this page is monospace text.
+ *
+ * `done` counts finished files, `withinFile` is how far the current file has
+ * come (0 to 1), so a single long document still moves the bar.
+ */
+export function progressBar(done, total, withinFile = 0, width = 40) {
+  if (total <= 0) return { bar: '', text: '' };
+  const fraction = Math.min(1, Math.max(0, (done + withinFile) / total));
+  const filled = Math.round(fraction * width);
+  return {
+    bar: `[${'#'.repeat(filled)}${'-'.repeat(width - filled)}]`,
+    text: `${Math.round(fraction * 100)}% (${Math.min(done + 1, total)}/${total})`,
+  };
+}
+
+/** One line per queued file, for the list shown before a run starts. */
+export function queueLines(files) {
+  return files.map((f) => `${f.name}  ${Math.round((f.size || 0) / 1024)} kB`);
+}

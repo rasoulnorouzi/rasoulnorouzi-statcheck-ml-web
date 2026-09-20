@@ -82,3 +82,7 @@
   `pipeline.js` threads the printed statistic and p-value text through to
   it from both the pattern and the model branch. Verdict agreement with the
   R package is now complete on the mother repository's baseline.
+- The demo page waits for `[ run ]` instead of starting on drop, and draws a
+  progress bar while it works. `test/e2e.test.js` drives the page in Chromium:
+  it found that choosing files through the button never worked, because
+  clearing the input emptied the live `FileList` the handler was holding.

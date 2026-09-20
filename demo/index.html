@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>statcheck-ml</title>
+<!-- An empty data URI: a browser asks for /favicon.ico otherwise, and a
+     static host answers 404 in the console of every reader. -->
+<link rel="icon" href="data:,">
 <style>
   /* One column of monospace text, like a terminal transcript. No boxes,
      no colour beyond the verdicts, dark or light with the system. */
@@ -41,7 +44,17 @@
   }
   #drop-zone::before { content: "> "; color: var(--dim); }
   #drop-zone.drag-over { border-style: solid; }
+  #drop-zone button { font: inherit; color: inherit; background: none; border: 0;
+                      padding: 0; cursor: pointer; }
+  #drop-zone button:hover { text-decoration: underline; }
   #file-input { display: none; }
+  #queue { margin: 0.75rem 0; }
+  #queue-list div::before { content: "  "; }
+  #queue-list div { color: var(--dim); }
+  #run-line { margin-top: 0.5rem; }
+  /* The bar is text: a monospace page can draw a bar in characters and it
+     needs no colour, no image and no animation. */
+  #progress { white-space: pre; }
   #kit-status::before { content: "> "; color: var(--dim); }
   #kit-status { white-space: pre-wrap; }
   #status-log { margin-top: 0.25rem; }
@@ -84,17 +97,22 @@ closed-form arithmetic. The model never judges; the verdict is a computation.</p
 model are bronze (three rater agents, no human gold set); read the numbers with that
 in mind.</p>
 
-<p id="choose-line">
-  <button id="choose-button" type="button">[ choose PDFs ]</button>
-  <span class="dim">up to 10 at once</span>
-</p>
-
 <div id="drop-zone">
-  drop up to 10 PDFs here, or use the button above
+  <button id="choose-button" type="button">[ choose PDFs ]</button>
+  or drop them here, up to 10 at once
   <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
 </div>
 
+<div id="queue" hidden>
+  <div id="queue-list"></div>
+  <p id="run-line">
+    <button id="run-button" type="button">[ run ]</button>
+    <button id="clear-button" type="button">[ clear ]</button>
+  </p>
+</div>
+
 <p id="kit-status">loading&hellip;</p>
+<p id="progress" hidden><span id="progress-bar"></span> <span id="progress-text"></span></p>
 <div id="status-log"></div>
 
 <div id="downloads" hidden>

@@ -6,14 +6,7 @@
 
 import { describe, it, expect } from 'vitest';
 import {
-  MAX_FILES,
-  DOWNLOAD_NAMES,
-  isPdfFile,
-  selectFiles,
-  verdictCounts,
-  formatVerdictCounts,
-  sectionHeading,
-  buildSummaryRow,
+  MAX_FILES, DOWNLOAD_NAMES, isPdfFile, selectFiles, verdictCounts, formatVerdictCounts, sectionHeading, buildSummaryRow, progressBar, queueLines,
 } from '../demo/support.js';
 
 function fakeFile(name, type = 'application/pdf') {
@@ -160,5 +153,33 @@ describe('demo/support', () => {
         md: 'statcheck-ml-report.md',
       });
     });
+  });
+});
+
+describe('progressBar', () => {
+  it('draws an empty bar at the start and a full one at the end', () => {
+    expect(progressBar(0, 4, 0, 8)).toEqual({ bar: '[--------]', text: '0% (1/4)' });
+    expect(progressBar(4, 4, 0, 8)).toEqual({ bar: '[########]', text: '100% (4/4)' });
+  });
+
+  it('moves while one long file is still being read', () => {
+    const { bar, text } = progressBar(0, 1, 0.5, 8);
+    expect(bar).toBe('[####----]');
+    expect(text).toBe('50% (1/1)');
+  });
+
+  it('never runs past the ends', () => {
+    expect(progressBar(9, 4, 5, 8).bar).toBe('[########]');
+    expect(progressBar(0, 0).bar).toBe('');
+  });
+});
+
+describe('queueLines', () => {
+  it('names each file and its size', () => {
+    expect(queueLines([{ name: 'a.pdf', size: 2048 }])).toEqual(['a.pdf  2 kB']);
+  });
+
+  it('tolerates a file object with no size', () => {
+    expect(queueLines([{ name: 'b.pdf' }])).toEqual(['b.pdf  0 kB']);
   });
 });
