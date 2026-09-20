@@ -28,7 +28,7 @@ This table lists every stage and says which ones this package has now.
 | repair | not yet | |
 | model (GRU-CRF, ONNX) | not yet | |
 | group | not yet | |
-| p-value check | not yet | |
+| p-value check | yes | `computeP`, `check` |
 | PDF reading in a browser | not yet | |
 
 ## Kit
@@ -37,9 +37,28 @@ This package ships with a kit: the shared spec, the trained model, and the
 parity cases every port is measured against. See `kit/README.md` for what
 the kit holds and how to verify it by hand.
 
+## The p-value check
+
+`computeP` recomputes the p-value from the test statistic. `check` compares
+that value with the p-value the paper reports, and gives one of four
+verdicts: `consistent`, `inconsistent`, `decision_error` or `undecidable`.
+
+The package contains its own incomplete beta and incomplete gamma functions,
+in `src/special.js`. It does not use a statistics library. The comparison is
+closed-form mathematics, so a model output never changes a verdict.
+
+`check` needs the p-value text exactly as the paper writes it, for example
+`.03`. The number of decimals tells the check how much the author rounded.
+
 ## Tests
 
     npm test
 
-The tests load the kit and check its hashes, then run every normalise and
-extract case from `kit/parity/cases.json` against this package's code.
+The tests load the kit and check its hashes. Then they run every normalise,
+extract and p-value case from `kit/parity/cases.json` against this package's
+code. The p-value cases must agree with the Python reference to 1 part in
+1e9. The special functions must agree with SciPy to 1 part in 1e12.
+
+To see the largest error each suite measured, let the console through:
+
+    npx vitest run --disable-console-intercept
