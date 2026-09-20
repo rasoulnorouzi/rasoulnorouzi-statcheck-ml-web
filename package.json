@@ -1,0 +1,29 @@
+{
+  "name": "statcheck-ml",
+  "version": "0.1.0",
+  "description": "Browser and npm port of statcheck-ml: an ONNX replacement for the statcheck extraction step.",
+  "type": "module",
+  "license": "GPL-3.0-or-later",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "files": [
+    "src",
+    "kit"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "latest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rasoulnorouzi/statcheck-ml-web"
+  },
+  "homepage": "https://rasoulnorouzi.github.io/statcheck-ml-web/"
+}

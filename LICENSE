@@ -1,0 +1,18 @@
+                    GNU GENERAL PUBLIC LICENSE
+                       Version 3, 29 June 2007
+
+ Copyright (C) 2007 Free Software Foundation, Inc. <https://fsf.org/>
+ Everyone is permitted to copy and distribute verbatim copies
+ of this license document, but changing it is not allowed.
+
+                            Preamble
+
+  The GNU General Public License is a free, copyleft license for
+software and other kinds of works.
+
+NOTE: this file is incomplete. Fetching the full text from
+https://www.gnu.org/licenses/gpl-3.0.txt failed from this environment
+(connection timeout, then a 403 on retry) even though other hosts were
+reachable. Replace this file with the full license text from that URL,
+or from https://www.gnu.org/licenses/gpl-3.0.txt directly, before
+publishing a release.
