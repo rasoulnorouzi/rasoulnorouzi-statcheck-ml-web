@@ -26,9 +26,13 @@ const TYPES = {
   '.md': 'text/markdown', '.onnx': 'application/octet-stream',
 };
 
+// Installing the package does not download a browser, so look for the
+// executable itself: CI installs `playwright` with the other dependencies and
+// would otherwise run this file and fail on launch.
 let chromium = null;
 try {
   ({ chromium } = await import('playwright'));
+  if (!existsSync(chromium.executablePath({ channel: 'chromium' }))) chromium = null;
 } catch {
   chromium = null;
 }
