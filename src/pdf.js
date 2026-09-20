@@ -65,6 +65,64 @@ export function joinItems(textContent) {
 }
 
 /**
+ * Whether `title` reads like a file name rather than a paper's own title:
+ * a publisher's PDF workflow sometimes copies the source file name into the
+ * Title metadata field verbatim (Word's own default is even more direct,
+ * `Microsoft Word - <filename>`), and neither is what a reader means by
+ * "the title".
+ */
+function looksLikeFileName(title) {
+  const lower = title.toLowerCase();
+  return ['.doc', '.docx', '.pdf', '.tex'].some((ext) => lower.endsWith(ext))
+    || title.startsWith('Microsoft Word - ');
+}
+
+/**
+ * The metadata Title, or `null` when it is not trustworthy on its own.
+ *
+ * Metadata alone is not enough for two reasons this one check covers: a
+ * publisher's conversion pipeline leaves the field empty far more often
+ * than not, and when it is set, it sometimes holds the source file name
+ * instead of the paper's title (`looksLikeFileName` above). A title under
+ * four characters is treated as the same kind of noise as an empty one.
+ */
+function acceptMetadataTitle(raw) {
+  if (!raw) return null;
+  const title = String(raw).trim();
+  if (title.length < 4) return null;
+  if (looksLikeFileName(title)) return null;
+  return title;
+}
+
+/**
+ * Group a page's text items by rounded font height and return the items of
+ * the tallest group, in the order PDF.js reported them (its reading order).
+ */
+function tallestItems(items) {
+  const groups = new Map();
+  for (const item of items) {
+    if (!item.str || !item.str.trim() || !item.transform) continue;
+    const height = Math.round(Math.abs(item.transform[3]));
+    if (!groups.has(height)) groups.set(height, []);
+    groups.get(height).push(item);
+  }
+  if (groups.size === 0) return [];
+  const tallest = Math.max(...groups.keys());
+  return groups.get(tallest);
+}
+
+/**
+ * The paper's title read off the largest text on page 1, or `null` when
+ * that text does not look like a title (a running head is a few characters,
+ * a full page of same-size prose is hundreds).
+ */
+function largestFontTitle(page1Items) {
+  const text = tallestItems(page1Items).map((item) => item.str).join('')
+    .replace(/\s+/g, ' ').trim();
+  return text.length >= 8 && text.length <= 300 ? text : null;
+}
+
+/**
  * Read every page of a PDF and return its text, unnormalised.
  *
  * @param {ArrayBuffer|Uint8Array} data The PDF itself.
@@ -72,21 +130,42 @@ export function joinItems(textContent) {
  *   `pdfjs` is the `pdfjs-dist` module (or its legacy build), already
  *   configured with a worker source when one is needed. `onProgress`, if
  *   given, is called after each page is read.
- * @returns {Promise<{text: string, pages: number}>}
+ * @returns {Promise<{text: string, pages: number, pageTexts: string[],
+ *   title: ?string, titleSource: ?('metadata'|'largest-font')}>}
  */
 export async function pdfToText(data, { pdfjs, onProgress } = {}) {
   if (!pdfjs) throw new Error('statcheck-ml pdf: pass { pdfjs }, the pdfjs-dist module');
   const bytes = toUint8Array(data);
   const doc = await pdfjs.getDocument({ data: bytes, verbosity: 0 }).promise;
 
-  let raw = '';
+  const pageTexts = [];
+  let page1Items = null;
   try {
     for (let i = 1; i <= doc.numPages; i += 1) {
       const page = await doc.getPage(i);
-      raw += joinItems(await page.getTextContent()) + '\n';
+      const textContent = await page.getTextContent();
+      if (i === 1) page1Items = textContent.items;
+      pageTexts.push(joinItems(textContent));
       if (typeof page.cleanup === 'function') page.cleanup();
       if (onProgress) onProgress(i, doc.numPages);
     }
+
+    let title = null;
+    let titleSource = null;
+    const metadata = await doc.getMetadata().catch(() => null);
+    const fromMetadata = acceptMetadataTitle(metadata?.info?.Title);
+    if (fromMetadata) {
+      title = fromMetadata;
+      titleSource = 'metadata';
+    } else if (page1Items) {
+      const fromFont = largestFontTitle(page1Items);
+      if (fromFont) {
+        title = fromFont;
+        titleSource = 'largest-font';
+      }
+    }
+
+    return { text: `${pageTexts.join('\n')}\n`, pages: doc.numPages, pageTexts, title, titleSource };
   } finally {
     // Releasing the document is optional. A failure here must never discard
     // the text already read.
@@ -94,6 +173,4 @@ export async function pdfToText(data, { pdfjs, onProgress } = {}) {
       if (typeof doc.destroy === 'function') await doc.destroy();
     } catch { /* nothing to release */ }
   }
-
-  return { text: raw, pages: doc.numPages };
 }

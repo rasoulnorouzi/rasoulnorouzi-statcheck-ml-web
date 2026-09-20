@@ -188,6 +188,23 @@ export function asNumber(text) {
   return null;
 }
 
+/**
+ * The `[start, end]` a group of spans covers: the earliest start and the
+ * latest end among them, matching a Python `(min(starts), max(ends))`.
+ *
+ * `group` below uses this, and so does `pipeline.js`'s model branch, which
+ * needs the same span to compute a result's `offset` — one place draws the
+ * boundary, so the two callers cannot drift apart.
+ *
+ * @param {Array<[number, number]>} spans
+ * @returns {[number, number]}
+ */
+export function spanOf(spans) {
+  const starts = spans.map(([start]) => start);
+  const ends = spans.map(([, end]) => end);
+  return [Math.min(...starts), Math.max(...ends)];
+}
+
 function buildResult(parts) {
   const stat = asNumber(parts.STAT);
   if (stat == null) return null;
@@ -215,9 +232,7 @@ export function group(text, tags) {
   for (const [parts, spans] of groupSpans(text, tagsToSpans(tags))) {
     const res = buildResult(parts);
     if (res === null) continue;
-    const starts = spans.map(([start]) => start);
-    const ends = spans.map(([, end]) => end);
-    out.push({ ...res, span: [Math.min(...starts), Math.max(...ends)] });
+    out.push({ ...res, span: spanOf(spans) });
   }
   return out;
 }

@@ -45,7 +45,8 @@ const PATTERNS = {
 };
 
 /**
- * Find every result the pattern can read, ordered by position.
+ * Find every result the pattern can read, ordered by position, with the
+ * character span each match covers.
  *
  * Whitespace inside a result is not normalised first. That is deliberate:
  * a caller that wants the offsets needs them to point into the text passed
@@ -55,12 +56,18 @@ const PATTERNS = {
  * unlike `normalize`. It is here so every stage in the pipeline takes the
  * same `(text, kit)` shape.
  *
+ * `extract` below is this function with `start`/`end` dropped again, kept
+ * as the public shape `test/extract.test.js` compares against. A caller
+ * that needs the span, such as `checkText`'s quote/offset fields, calls
+ * this function instead, so the one regex pass stays in one place.
+ *
  * @param {string} text
  * @param {object} [kit] From `loadKit`. Unused by this stage.
  * @returns {Array<{test_type: string, statistic: string, df1: ?string,
- *   df2: ?string, p_operator: string, p_value: string}>}
+ *   df2: ?string, p_operator: string, p_value: string, start: number,
+ *   end: number}>}
  */
-export function extract(text, kit) {
+export function extractWithSpans(text, kit) {
   const found = [];
   for (const [name, pattern] of Object.entries(PATTERNS)) {
     pattern.lastIndex = 0;
@@ -83,9 +90,20 @@ export function extract(text, kit) {
 
   // A z pattern can also match inside a longer result. Drop any extraction
   // that sits wholly inside another one.
-  const kept = found.filter((e) =>
+  return found.filter((e) =>
     !found.some((o) => o !== e && o.start <= e.start && e.end <= o.end));
+}
 
-  return kept.map(({ test_type, statistic, df1, df2, p_operator, p_value }) =>
-    ({ test_type, statistic, df1, df2, p_operator, p_value }));
+/**
+ * `extractWithSpans`, without the span each match covers.
+ *
+ * @param {string} text
+ * @param {object} [kit] From `loadKit`. Unused by this stage.
+ * @returns {Array<{test_type: string, statistic: string, df1: ?string,
+ *   df2: ?string, p_operator: string, p_value: string}>}
+ */
+export function extract(text, kit) {
+  return extractWithSpans(text, kit).map(
+    ({ test_type, statistic, df1, df2, p_operator, p_value }) =>
+      ({ test_type, statistic, df1, df2, p_operator, p_value }));
 }

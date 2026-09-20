@@ -45,7 +45,7 @@ This table lists every stage and says which ones this package has now.
 |---|---|---|
 | kit loading and verification | yes | `loadKit` |
 | normalise | yes | `normalize` |
-| extract (regex baseline) | yes | `extract` |
+| extract (regex baseline) | yes | `extract`, `extractWithSpans` |
 | prefilter | yes | `prefilter` |
 | repair | yes | `repair` |
 | model (GRU-CRF, ONNX) | yes | `loadModel`, `tag` |
@@ -53,6 +53,7 @@ This table lists every stage and says which ones this package has now.
 | p-value check | yes | `computeP`, `check` |
 | whole pipeline | yes | `checkText` |
 | PDF reading | yes | `pdfToText`, `checkPdf` |
+| report formats | yes | `toJSON`, `toCSV`, `toMarkdown` |
 
 ## The model
 
@@ -87,6 +88,28 @@ runs that stage — so `checkPdf(data, kit, model, { pdfjs })` is exactly
 `pdfjs` is passed in rather than imported by a fixed path, because the
 build a caller needs differs: `pdfjs-dist/legacy/build/pdf.mjs` in Node,
 the browser build with a worker configured in a page (see `demo/app.js`).
+
+`pdfToText` also returns `pageTexts` (one entry per page, what `text` is
+built from), and the paper's `title` with a `titleSource` of `"metadata"` or
+`"largest-font"` saying where it came from. `checkPdf`'s result carries a
+`page` on each result (the 1-based page it sits on, or `null` when it
+cannot be placed), plus `title`, `titleSource`, and a `fileName` taken from
+`pdfOptions.fileName`. Every result, from `checkText` or `checkPdf` alike,
+also carries `quote` (the exact source text), `offset` (its position in the
+text the pipeline scanned), and `context` (the sentence around it) — see
+`docs/TUTORIAL.md` section 5 for the fields in full.
+
+## Reports
+
+`toJSON(docReports, kit, options?)`, `toCSV(docReports, kit)`, and
+`toMarkdown(docReports, kit)` turn one or more checked documents into a file
+a reader can act on. A `docReport` is `{fileName, title, titleSource, pages,
+results, stages}` — what `checkPdf` returns, plus the file name — one per
+PDF, so several documents can go into one report. `kit` is
+`{version, model, mother_commit}`, printed into the JSON header and the
+Markdown trailer. The CSV has one row per result (RFC 4180 quoting, CRLF
+line endings), and the Markdown has one heading and one table per document,
+with the quotes and their context in a numbered list under the table.
 
 ## Kit
 

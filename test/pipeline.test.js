@@ -17,6 +17,8 @@ import fs from 'node:fs';
 import { loadKit } from '../src/kit.js';
 import { loadModel } from '../src/model.js';
 import { checkText } from '../src/pipeline.js';
+import { normalize } from '../src/normalize.js';
+import { repair } from '../src/repair.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.join(here, '..', 'kit');
@@ -52,4 +54,33 @@ describe('pipeline', () => {
       }
     });
   }
+
+  it('adds quote, offset and context to every result, without disturbing the parity fields', async () => {
+    const c = cases.find((doc) => doc.expected.length > 0);
+    const { results } = await checkText(c.text, kit, model);
+    expect(results.length).toBe(c.expected.length);
+
+    // `offset` is a position in the text `checkText` actually scanned —
+    // after normalise and repair, not the raw case text — so the round
+    // trip below reproduces those two stages the same way `checkText` does.
+    const normalized = normalize(c.text, kit);
+    const { text: fixed } = repair(normalized, kit);
+
+    for (let i = 0; i < c.expected.length; i += 1) {
+      const want = c.expected[i];
+      const got = results[i];
+      for (const key of Object.keys(want)) expectField(got[key], want[key]);
+
+      expect(typeof got.quote).toBe('string');
+      expect(got.quote.length).toBeGreaterThan(0);
+      expect(typeof got.offset).toBe('number');
+      expect(fixed.slice(got.offset, got.offset + got.quote.length)).toBe(got.quote);
+      expect(typeof got.context).toBe('string');
+      // `quote` keeps an internal line break verbatim (only its ends are
+      // trimmed), but `context` collapses every line break to a space, so a
+      // quote that crosses a line — this project's own design rule is that
+      // one can — is compared to `context` the same way.
+      expect(got.context).toContain(got.quote.replace(/\n/g, ' '));
+    }
+  });
 });

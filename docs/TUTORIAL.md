@@ -134,7 +134,9 @@ const kit = await loadKit('./kit');
 const model = await loadModel(kit);
 
 const data = readFileSync('test/fixtures/sample_paper_damaged.pdf');
-const { results, stages, pages } = await checkPdf(data, kit, model, { pdfjs });
+const {
+  results, stages, pages, title, titleSource, fileName,
+} = await checkPdf(data, kit, model, { pdfjs });
 ```
 
 Run from the package root, `results` came back as:
@@ -144,38 +146,52 @@ Run from the package root, `results` came back as:
   {
     "test_type": "t", "statistic": 2.45, "df1": 23, "df2": null,
     "p_operator": "=", "p_value": 0.022, "source": "pattern", "line": 2,
+    "quote": "t(23) = 2.45, p = .022", "offset": 94,
+    "context": "Reaction times differed between the groups, t(23) = 2.45, p = .022.",
     "verdict": "consistent", "computed_p": 0.022315728160948536,
-    "reason": "", "missing": []
+    "reason": "", "missing": [], "page": 1
   },
   {
     "test_type": "f", "statistic": 5.1, "df1": 2, "df2": 30,
     "p_operator": "=", "p_value": 0.012, "source": "pattern", "line": 2,
+    "quote": "F(2, 30) = 5.10, p = .012", "offset": 157,
+    "context": "The effect of condition was reliable, F(2, 30) = 5.10, p = .012.",
     "verdict": "consistent", "computed_p": 0.012400181003238699,
-    "reason": "", "missing": []
+    "reason": "", "missing": [], "page": 1
   },
   {
     "test_type": "f", "statistic": 9.2, "df1": 1, "df2": 118,
     "p_operator": "=", "p_value": 0.003, "source": "pattern", "line": 2,
+    "quote": "F(1, 118) = 9.20, p = .003", "offset": 223,
+    "context": "Accuracy differed between conditions, F(1, 118) = 9.20, p = .003.",
     "verdict": "consistent", "computed_p": 0.002976614217849726,
-    "reason": "", "missing": []
+    "reason": "", "missing": [], "page": 1
   },
   {
     "test_type": "t", "statistic": 1.8, "df1": 46, "df2": null,
     "p_operator": "=", "p_value": 0.04, "source": "pattern", "line": 4,
+    "quote": "t(46) = 1.80, p = .04", "offset": 285,
+    "context": "Recall was lower under pressure, t(46) = 1.80, p = .04.",
     "verdict": "decision_error", "computed_p": 0.07842066481562257,
     "reason": "the reported and computed p-values disagree about significance",
-    "missing": []
+    "missing": [], "page": 1
   },
   {
     "test_type": "t", "statistic": 4.15, "df1": 19, "df2": null,
     "p_operator": "=", "p_value": 0.001, "source": "pattern", "line": 6,
+    "quote": "t(19) = 4.15, p = .001", "offset": 350,
+    "context": "Effort was higher in the noticing group, t(19) = 4.15, p = .001.",
     "verdict": "consistent", "computed_p": 0.0005439714186639246,
-    "reason": "", "missing": []
+    "reason": "", "missing": [], "page": 1
   }
 ]
 ```
 
-with `pages` equal to `1` and `stages`:
+with `pages` equal to `1`, `title` equal to `"A paper whose operators the
+conversion destroyed"` (`titleSource: "largest-font"`; this fixture carries
+no metadata Title, so the title comes from the bold, 12pt heading above the
+damaged lines — see section 5's `pdfToText` entry), `fileName` equal to
+`null` (this call passed no `pdfOptions.fileName`), and `stages`:
 
 ```json
 {
@@ -193,7 +209,7 @@ particular fixture is readable by regex once `repair` has restored its ten
 damaged operator characters, so the model finds nothing beyond it here.
 Section 4 shows a case where the two branches disagree.
 
-Every result carries the same twelve fields, whether the pattern or the
+Every result carries the same fifteen fields, whether the pattern or the
 model found it:
 
 | Field | Type | Meaning |
@@ -206,15 +222,22 @@ model found it:
 | `p_value` | number \| null | the p-value as reported |
 | `source` | string | `"pattern"` or `"model"` |
 | `line` | number | the prefilter's candidate line index |
+| `quote` | string | the exact source text of the result |
+| `offset` | number | the quote's position in the scanned text |
+| `context` | string | the sentence around the quote, up to 300 characters |
 | `verdict` | string | one of the four strings in section 6 |
 | `computed_p` | number \| null | the p-value `computeP` recomputed |
 | `reason` | string | empty when consistent, else a sentence |
 | `missing` | string[] | which required parts were absent |
 
-`checkPdf` adds one field of its own, `pages`, the PDF's page count.
-`stages` is diagnostic, not a result: how many lines and windows each
-stage kept, how many results each of the pattern and the model
-contributed, and a count of every verdict and every missing part.
+`checkPdf` adds a `page` to each result too (the 1-based page it sits on, or
+`null` when it cannot be placed), and three fields of its own: `pages`, the
+PDF's page count; `title` and `titleSource`, the paper's title and where it
+came from (`pdfToText`'s entry in section 5 covers both); and `fileName`,
+carried through from `pdfOptions.fileName` unchanged. `stages` is
+diagnostic, not a result: how many lines and windows each stage kept, how
+many results each of the pattern and the model contributed, and a count of
+every verdict and every missing part.
 
 ## 4. The stages on one damaged sentence
 
@@ -365,6 +388,18 @@ extract('t(23) = 2.45, p = .022')
 // -> [{ test_type: "t", statistic: "2.45", df1: "23", df2: null, p_operator: "=", p_value: ".022" }]
 ```
 
+**`extractWithSpans(text, kit?)`** → `extract`'s array, each entry carrying
+the `start`/`end` character span its match covers. `extract` is this
+function with the span dropped again; `checkText` calls this one instead,
+so a result's `quote` and `offset` come from the one regex pass `extract`
+already runs, not a second one:
+
+```js
+extractWithSpans('t(23) = 2.45, p = .022')
+// -> [{ test_type: "t", statistic: "2.45", df1: "23", df2: null, p_operator: "=",
+//       p_value: ".022", start: 0, end: 22 }]
+```
+
 **`CONSISTENT, INCONSISTENT, DECISION_ERROR, UNDECIDABLE`** — the four
 verdict strings `check` returns, exported so a caller never has to spell
 one out by hand:
@@ -501,6 +536,8 @@ await checkText('The effect was reliable, t(23) = 2.45, p = .022.', kit, model)
   "results": [{
     "test_type": "t", "statistic": 2.45, "df1": 23, "df2": null,
     "p_operator": "=", "p_value": 0.022, "source": "pattern", "line": 0,
+    "quote": "t(23) = 2.45, p = .022", "offset": 25,
+    "context": "The effect was reliable, t(23) = 2.45, p = .022.",
     "verdict": "consistent", "computed_p": 0.022315728160948536,
     "reason": "", "missing": []
   }],
@@ -514,21 +551,82 @@ await checkText('The effect was reliable, t(23) = 2.45, p = .022.', kit, model)
 }
 ```
 
-**`checkPdf(data, kit, model, pdfOptions)`** → `Promise<{results, stages, pages}>`.
-Section 3 above is this call in full; `pdfOptions` is `{pdfjs, onProgress?}`,
-forwarded to `pdfToText`.
+**`checkPdf(data, kit, model, pdfOptions)`** →
+`Promise<{results, stages, pages, title, titleSource, fileName}>`. Section 3
+above is this call in full; `pdfOptions` is `{pdfjs, onProgress?, fileName?}`,
+`pdfjs`/`onProgress` forwarded to `pdfToText` and `fileName` carried through
+unchanged, defaulting to `null`. Each result also carries a `page`, the
+1-based page it sits on, or `null` when it cannot be placed — matched on the
+digits and `.` a result's `quote` shares with a page's raw text, because
+those survive an operator repair and a PDF engine's own line breaks when
+the rest of the text does not.
 
-**`pdfToText(data, {pdfjs, onProgress?})`** → `Promise<{text, pages}>`, the
-PDF reading stage on its own, unnormalised:
+**`pdfToText(data, {pdfjs, onProgress?})`** →
+`Promise<{text, pages, pageTexts, title, titleSource}>`, the PDF reading
+stage on its own, unnormalised:
 
 ```js
-const { text, pages } = await pdfToText(readFileSync('test/fixtures/sample_paper.pdf'), { pdfjs });
-// -> pages: 2, text.length: 1979
+const {
+  text, pages, pageTexts, title, titleSource,
+} = await pdfToText(readFileSync('test/fixtures/sample_paper.pdf'), { pdfjs });
+// -> pages: 2, text.length: 1979, pageTexts.length: 2
+// -> title: "Attention and recall under time pressure", titleSource: "largest-font"
+// (this fixture's PyMuPDF writer never sets a metadata Title, so the title
+// comes from the largest text on page 1 — the bold, 14pt heading)
 // text.slice(0, 200):
 // "Attention and recall under time pressure\n\nA. Example, B. Sample, and C. Fictional\n\n
 //  Department of Nothing in Particular\n\nAbstract\n\nWe tested whether time pressure changes
 //  recall. Ninety-six people took"
 ```
+
+**`toJSON(docReports, kit, options?)`**, **`toCSV(docReports, kit)`**,
+**`toMarkdown(docReports, kit)`** → `string`. `docReports` is an array of
+`{fileName, title, titleSource, pages, results, stages}` — what `checkPdf`
+returns, plus the file name — one entry per PDF, so several documents make
+one report. `kit` is `{version, model, mother_commit}`, printed into the
+JSON header and the Markdown trailer; `options` for `toJSON` is
+`{pretty = true}`.
+
+```js
+const kitInfo = {
+  version: kit.manifest.kit_version, model: kit.manifest.model_default,
+  mother_commit: kit.manifest.mother_commit,
+};
+// docs: one { fileName, title, titleSource, pages, results, stages } per
+// checkPdf call, both sample fixtures — the same shape as section 3's result.
+```
+
+`toCSV(docs, kitInfo)`, first three lines (one header, one row per result):
+
+```csv
+file,title,page,line,source,test_type,statistic,df1,df2,p_operator,reported_p,computed_p,verdict,quote,context
+sample_paper.pdf,Attention and recall under time pressure,1,28,pattern,t,2.45,23,,=,0.022,0.022315728160948536,consistent,"t(23) = 2.45, p = .022","Reaction times differed between the groups, t(23) = 2.45, p = .022."
+sample_paper.pdf,Attention and recall under time pressure,1,28,pattern,f,5.1,2,30,=,0.012,0.012400181003238699,consistent,"F(2, 30) = 5.10, p = .012","The effect of condition on recall was reliable, F(2, 30) = 5.10, p = .012."
+```
+
+The `quote` and `context` columns hold a comma, so RFC 4180 quoting wraps
+them; line endings are CRLF, matched to the format's own spec rather than
+the platform this ran on.
+
+`toMarkdown(docs, kitInfo)`, first lines (heading, summary, table start):
+
+```markdown
+## Attention and recall under time pressure
+
+File: sample_paper.pdf. Pages: 2. Verdicts: consistent: 6, decision_error: 1, undecidable: 2.
+
+| page | line | test | statistic | p reported | p computed | verdict | source |
+|---|---|---|---|---|---|---|---|
+| 1 | 28 | t | 2.45 | 0.022 | 0.022315728160948536 | consistent | pattern |
+```
+
+The table stays narrow — the quote and its context are not columns in it —
+because a numbered list under the table carries those instead, one entry
+per result, so the table is still readable at a normal terminal width.
+
+`toJSON(docs, kitInfo)` gives `{tool: "statcheck-ml", kit, generated_at,
+documents}`, `documents` holding every `docReport` unchanged; only
+`generated_at` differs between two runs over the same input.
 
 ## 6. Reading a verdict
 

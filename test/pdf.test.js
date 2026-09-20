@@ -72,7 +72,9 @@ describe('pdf', () => {
 
   it('pdfToText reads the damaged sample paper as one line per source line', async () => {
     const data = await readFile(path.join(fixturesDir, 'sample_paper_damaged.pdf'));
-    const { text, pages } = await pdfToText(data, { pdfjs });
+    const {
+      text, pages, pageTexts, title, titleSource,
+    } = await pdfToText(data, { pdfjs });
     expect(pages).toBe(1);
     expect(text).toContain('t(23)');
     expect(text).toContain('F(2, 30)');
@@ -80,6 +82,17 @@ describe('pdf', () => {
     // mother's `js/extract.js` must not have joined two of them into one.
     const lines = text.split('\n').filter((l) => l.trim() !== '');
     expect(lines.length).toBeGreaterThanOrEqual(5);
+
+    // `pageTexts` is what `text` is built from: one entry per page, joined
+    // with a single newline and one trailing newline, exactly as `text` is.
+    expect(pageTexts.length).toBe(pages);
+    expect(`${pageTexts.join('\n')}\n`).toBe(text);
+
+    // `make_sample_paper.py` never calls PyMuPDF's `set_metadata`, so this
+    // fixture carries no Title, and the title comes from the largest text
+    // on page 1 instead: the bold, 12pt heading above the damaged lines.
+    expect(titleSource).toBe('largest-font');
+    expect(title).toBe('A paper whose operators the conversion destroyed');
   });
 
   it('checkPdf on the damaged sample paper matches the Python pipeline', async () => {
