@@ -52,3 +52,14 @@
   `node_modules`.
 - `.github/workflows/test.yml` (Node 20 and 24) and `pages.yml` (deploys
   the repository root to GitHub Pages on push to `main`).
+- Fixed `pvalue`'s rounding rule: it allowed only for the rounding of the
+  reported p-value, so it called some correctly reported results errors,
+  such as `t(67) = 1.48, p = .143`. statcheck's own rule (`error_test` and
+  `decision_error_test` in statcheck 1.5.0) allows for the rounding of the
+  test statistic too, and `check` now mirrors it: `roundingInterval`
+  brackets the p-value a rounded statistic could have implied, `pyRound`
+  matches Python's tie-to-even rounding where `Number.prototype.toFixed`
+  does not, `check` gains `statisticText` and `pZeroError` options, and
+  `pipeline.js` threads the printed statistic and p-value text through to
+  it from both the pattern and the model branch. Verdict agreement with the
+  R package is now complete on the mother repository's baseline.

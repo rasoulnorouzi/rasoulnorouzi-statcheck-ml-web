@@ -245,8 +245,14 @@ function pythonFloatText(value) {
   return `${sign}0.${'0'.repeat(-exponent - 1)}${digits}`;
 }
 
-/** Count the digits after the first decimal point in a number written as text. */
-function decimals(reported) {
+/**
+ * Count the digits after the first decimal point in a number written as
+ * text.
+ *
+ * @param {string|number} reported
+ * @returns {number}
+ */
+export function decimalsOf(reported) {
   const text = typeof reported === 'string' ? reported : pythonFloatText(reported);
   const dot = text.indexOf('.');
   return dot === -1 ? 0 : text.length - dot - 1;
@@ -258,25 +264,122 @@ function isSignificant(p, alpha, pEqualAlphaSig) {
 }
 
 /**
+ * Python's `round(x, ndigits)` for a non-negative `ndigits`: round to that
+ * many decimal places, ties to even, judged from the number's exact binary
+ * value. `check` rounds `lowP`/`upP` to the p-value's own decimals before
+ * comparing them with the reported p, so a bound that lands exactly halfway
+ * decides a verdict, and JavaScript's own rounding does not agree with
+ * Python there: `Number.prototype.toFixed` breaks a tie away from zero
+ * ((2.5).toFixed(0) is "3"), while Python's `round` breaks it to the even
+ * neighbour (`round(2.5)` is `2`). Checked against the venv's Python for
+ * several bounds in `test/pvalue.test.js`.
+ *
+ * `toFixed` is specified to round against a number's exact mathematical
+ * value rather than against a further approximation of it, so asking for
+ * far more digits than `ndigits` reproduces that exact value's own decimal
+ * digits out to where they end — a double's binary fraction is always
+ * finite — and the tie is read straight off them.
+ *
+ * @param {number} x
+ * @param {number} ndigits
+ * @returns {number}
+ */
+export function pyRound(x, ndigits) {
+  if (!Number.isFinite(x) || x === 0) return x;
+  const sign = x < 0 ? -1 : 1;
+  const magnitude = Math.abs(x);
+  const text = magnitude.toFixed(Math.min(100, ndigits + 40));
+  const dot = text.indexOf('.');
+  const wholePart = text.slice(0, dot);
+  const fracPart = text.slice(dot + 1);
+  const keptDigits = wholePart + fracPart.slice(0, ndigits);
+  const tailDigits = fracPart.slice(ndigits);
+
+  // BigInt carries the possible +1 exactly, and `padStart` below restores
+  // any leading zero a plain `BigInt -> String` round trip would drop, so
+  // the digit boundary between the whole part and the decimals stays where
+  // `ndigits` put it.
+  let kept = BigInt(keptDigits === '' ? '0' : keptDigits);
+  const firstTailDigit = Number(tailDigits[0] ?? '0');
+  const tailIsExactlyHalf = firstTailDigit === 5 && /^0*$/.test(tailDigits.slice(1));
+  if (firstTailDigit > 5 || (firstTailDigit === 5 && !tailIsExactlyHalf)) {
+    kept += 1n;
+  } else if (tailIsExactlyHalf && kept % 2n === 1n) {
+    kept += 1n;
+  }
+
+  const digits = kept.toString().padStart(keptDigits.length, '0');
+  const cut = digits.length - ndigits;
+  const roundedWhole = digits.slice(0, cut) || '0';
+  const roundedFrac = digits.slice(cut);
+  const value = Number(ndigits > 0 ? `${roundedWhole}.${roundedFrac}` : roundedWhole);
+  return sign * value;
+}
+
+/**
+ * The p-values a test statistic could imply, given how it was rounded.
+ *
+ * A paper writes `t(67) = 1.48`. The true statistic is anywhere in
+ * [1.475, 1.485], and each end implies a different p-value. statcheck
+ * compares the reported p against that whole interval, and this port must
+ * do the same or it calls a correctly reported result an error.
+ *
+ * @param {{test_type: string, statistic: number, df1: ?number, df2: ?number,
+ *   one_tailed: ?boolean}} result
+ * @param {?string} [statisticText] The statistic exactly as printed, for
+ *   example "1.48". Without it the decimals are read off the number itself,
+ *   which is right only when it was parsed from the text it was printed as.
+ * @returns {[?number, ?number]} `[lowP, upP]`, or `[null, null]` when no p
+ *   can be computed at either end.
+ */
+export function roundingInterval(result, statisticText) {
+  const places = decimalsOf(statisticText != null ? statisticText : result.statistic);
+  const half = 0.5 / (10 ** places);
+  const statistic = Number(result.statistic);
+  // The end nearer zero implies the larger p-value, so a negative statistic
+  // swaps which end is which.
+  const [near, far] = statistic >= 0
+    ? [statistic - half, statistic + half]
+    : [statistic + half, statistic - half];
+  const upP = computeP(
+    result.test_type, near, result.df1 ?? null, result.df2 ?? null, result.one_tailed ?? false,
+  );
+  const lowP = computeP(
+    result.test_type, far, result.df1 ?? null, result.df2 ?? null, result.one_tailed ?? false,
+  );
+  if (upP == null || lowP == null) return [null, null];
+  return [lowP, upP];
+}
+
+/**
  * Compare a reported p-value with the value implied by the statistic.
  *
- * `reportedPText` is the p-value exactly as written, for example ".03". It
- * is used to learn how many decimals were reported, so the comparison allows
- * for the rounding the author applied. A reported .03 stands for any value
- * that rounds to .03 at the same number of decimals, which is a tolerance of
- * half of the last reported place. Text such as "<.001" carries its three
- * decimals through the leading operator, and a bare "0" reports none, which
- * leaves the tolerance at one half.
+ * The rule is statcheck's own (`error_test` and `decision_error_test` in
+ * statcheck 1.5.0), because statcheck is the baseline this project is
+ * measured against and its convention is what a reader expects. Both
+ * numbers in a paper are rounded, and the comparison allows for both:
+ * `reportedPText` gives the decimals of the p-value, `statisticText` the
+ * decimals of the statistic. Without them the decimals are read from the
+ * numbers themselves, which is right whenever they were parsed from the
+ * text they were printed as.
+ *
+ * An inconsistency is not the same as a wrong conclusion. The verdict is
+ * `decision_error` when the reported and the computed p-value fall on
+ * opposite sides of `alpha`, and `inconsistent` when they disagree without
+ * changing what the paper claims.
  *
  * @param {{test_type: string, statistic: ?number, df1: ?number, df2: ?number,
  *   p_operator: ?string, p_value: ?number, one_tailed: ?boolean}} result
- * @param {{alpha: ?number, pEqualAlphaSig: ?boolean,
- *   reportedPText: ?string}} [options]
+ * @param {{alpha: ?number, pEqualAlphaSig: ?boolean, reportedPText: ?string,
+ *   statisticText: ?string, pZeroError: ?boolean}} [options]
  * @returns {{verdict: string, computed_p: ?number, reported_p: ?number,
  *   reason: string, missing: string[]}}
  */
 export function check(result, options = {}) {
-  const { alpha = 0.05, pEqualAlphaSig = true, reportedPText = null } = options;
+  const {
+    alpha = 0.05, pEqualAlphaSig = true, reportedPText = null,
+    statisticText = null, pZeroError = true,
+  } = options;
   const computed = computeP(
     result.test_type, result.statistic, result.df1 ?? null, result.df2 ?? null,
     result.one_tailed ?? false,
@@ -296,7 +399,16 @@ export function check(result, options = {}) {
       missing: absent,
     };
   }
-  if (result.p_value == null || !['=', '<', '>'].includes(result.p_operator)) {
+
+  let reported;
+  let operator;
+  if (result.p_operator === 'ns') {
+    // "ns" is a claim about alpha, not a number: the paper says the result
+    // was not significant. statcheck reads it as `p > alpha`, and so does
+    // this.
+    reported = alpha;
+    operator = '>';
+  } else if (result.p_value == null || !['=', '<', '>'].includes(result.p_operator)) {
     return {
       verdict: UNDECIDABLE,
       computed_p: computed,
@@ -304,37 +416,49 @@ export function check(result, options = {}) {
       reason: describeMissing(absent) || 'there is no reported p-value to compare against',
       missing: absent,
     };
-  }
-
-  const reported = Number(result.p_value);
-  const operator = result.p_operator;
-
-  let agrees;
-  if (operator === '=') {
-    const places = decimals(reportedPText != null ? reportedPText : result.p_value);
-    const tolerance = places > 0 ? 0.5 * (10 ** -places) : 0.5;
-    agrees = Math.abs(computed - reported) <= tolerance;
-  } else if (operator === '<') {
-    agrees = computed < reported;
   } else {
-    agrees = computed > reported;
+    reported = Number(result.p_value);
+    operator = result.p_operator;
   }
 
-  if (agrees) {
+  let [lowP, upP] = roundingInterval(result, statisticText);
+  if (lowP == null) { lowP = computed; upP = computed; }
+
+  let error;
+  if (pZeroError && reported <= 0) {
+    // No test gives a p-value of exactly zero, so the paper reports a
+    // number that cannot be right, however small the computed value is.
+    error = true;
+  } else if (operator === '=') {
+    const pDec = decimalsOf(reportedPText != null ? reportedPText : reported);
+    error = reported > pyRound(upP, pDec) || reported < pyRound(lowP, pDec);
+  } else if (operator === '<') {
+    error = reported < lowP;
+  } else {
+    error = reported > upP;
+  }
+
+  if (!error) {
     return {
       verdict: CONSISTENT, computed_p: computed, reported_p: reported, reason: '', missing: [],
     };
   }
 
-  // The values disagree. A disagreement that also flips the conclusion is
-  // reported separately, because it changes what the paper claims.
-  let reportedSignificant;
-  if (operator === '=') reportedSignificant = isSignificant(reported, alpha, pEqualAlphaSig);
-  else if (operator === '<') reportedSignificant = reported <= alpha;
-  else reportedSignificant = false;
+  // statcheck decides significance on the computed value itself, not on the
+  // interval: the interval says whether the two numbers can agree, alpha
+  // says what the paper concluded.
   const computedSignificant = isSignificant(computed, alpha, pEqualAlphaSig);
+  let decisionError;
+  if (operator === '=') {
+    const reportedSignificant = isSignificant(reported, alpha, pEqualAlphaSig);
+    decisionError = reportedSignificant !== computedSignificant;
+  } else if (operator === '<') {
+    decisionError = reported <= alpha && !computedSignificant;
+  } else {
+    decisionError = reported >= alpha && computedSignificant;
+  }
 
-  if (reportedSignificant !== computedSignificant) {
+  if (decisionError) {
     return {
       verdict: DECISION_ERROR,
       computed_p: computed,

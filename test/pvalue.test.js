@@ -15,7 +15,8 @@ import path from 'node:path';
 import fs from 'node:fs';
 import {
   CONSISTENT, DECISION_ERROR, INCONSISTENT, UNDECIDABLE,
-  check, chi2Sf, computeP, fSf, normSf, parseNumber, tSf,
+  check, chi2Sf, computeP, decimalsOf, fSf, normSf, parseNumber, pyRound,
+  roundingInterval, tSf,
 } from '../src/pvalue.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -47,7 +48,10 @@ describe('pvalue parity', () => {
         p_operator: c.p_operator,
         p_value: parseNumber(c.p_text),
       };
-      const got = check(result, { reportedPText: c.p_text });
+      const got = check(result, {
+        reportedPText: c.p_text,
+        statisticText: c.statistic_text,
+      });
 
       expect(got.verdict).toBe(c.expected.verdict);
 
@@ -77,6 +81,9 @@ describe('pvalue parity', () => {
       'r-df1-eq-1', 'r-near-one-0999', 'r-equals-one-undecidable',
       't-p-text-zero', 't-p-text-dot-000', 't-p-text-lt-dot001',
       't-decision-error', 't-operator-gt', 't-p-value-none',
+      'rounding-stat-2dp', 'rounding-stat-4dp', 'rounding-chi2-edge',
+      'rounding-r-edge', 'rounding-wide-f', 'ns-contradicted',
+      'ns-not-significant', 'p-reported-zero', 'p-reported-zero-decimals',
     ];
     const present = new Set(cases.map((c) => c.name));
     expect(edges.filter((name) => !present.has(name))).toEqual([]);
@@ -186,31 +193,18 @@ describe('check', () => {
     expect(got.reason).toBe('the statistic and its degrees of freedom give no p-value');
   });
 
-  it('allows the rounding the author applied, and no more', () => {
-    // t(20) = 1.5 gives p = .14924. Two decimals round to .15, so .14 is a
-    // real disagreement; three decimals round to .149 and agree.
+  it('allows the p-value rounding the author applied, and no more, once the '
+    + "statistic's own rounding is pinned down", () => {
+    // t(20) = 1.5 gives p = .14924. With the statistic itself pinned to two
+    // printed decimals, two decimals of p round to .15, so .14 is a real
+    // disagreement; three decimals round to .149 and agree.
     const result = {
       test_type: 't', statistic: 1.5, df1: 20, df2: null, p_operator: '=', p_value: 0.14,
     };
-    expect(check(result, { reportedPText: '.14' }).verdict).toBe(INCONSISTENT);
-    expect(check({ ...result, p_value: 0.149 }, { reportedPText: '.149' }).verdict)
-      .toBe(CONSISTENT);
-    // A bare "0" reports no decimals at all, which leaves half a unit of
-    // tolerance and swallows anything below .5.
-    expect(check({ ...result, p_value: 0 }, { reportedPText: '0' }).verdict).toBe(CONSISTENT);
-  });
-
-  it('counts the decimals of a float the way Python prints it', () => {
-    // With no text the reference falls back to `str(p_value)`. Python writes
-    // 1e-05, which carries no decimals and so leaves half a unit of
-    // tolerance; JavaScript writes 0.00001, which carries five and leaves
-    // 5e-06. z = 1 gives p = .317, which sits between the two, so the
-    // verdict turns on which string the count is taken from.
-    const result = {
-      test_type: 'z', statistic: 1, df1: null, df2: null, p_operator: '=', p_value: 1e-5,
-    };
-    expect(check(result).verdict).toBe(CONSISTENT);
-    expect(check(result, { reportedPText: '0.00001' }).verdict).toBe(DECISION_ERROR);
+    expect(check(result, { reportedPText: '.14', statisticText: '1.50' }).verdict)
+      .toBe(INCONSISTENT);
+    expect(check({ ...result, p_value: 0.149 },
+      { reportedPText: '.149', statisticText: '1.50' }).verdict).toBe(CONSISTENT);
   });
 
   it('reports a disagreement that flips the conclusion separately', () => {
@@ -246,6 +240,148 @@ describe('check', () => {
     const alpha = computeP('t', 1.8, 60);
     expect(check(result, { alpha, pEqualAlphaSig: true }).verdict).toBe(INCONSISTENT);
     expect(check(result, { alpha, pEqualAlphaSig: false }).verdict).toBe(DECISION_ERROR);
+  });
+
+  // The four cases below mirror the four new `test_*` functions the mother
+  // repository added to `tests/test_pvalue.py` once it matched statcheck
+  // 1.5.0's own rule (`error_test`/`decision_error_test`). Each one is the
+  // JavaScript port's version of the same Python assertion.
+
+  it("the statistic's own rounding widens the comparison, not just the "
+    + "p-value's", () => {
+    // t(67) = 1.48 implies p = .1436, and a paper that writes p = .143 is
+    // not wrong: the statistic itself was rounded, so the true p lies in a
+    // range. statcheck 1.5.0 accepts this row; before the rule matched
+    // statcheck this port called it inconsistent.
+    const result = {
+      test_type: 't', statistic: 1.48, df1: 67, df2: null, p_operator: '=', p_value: 0.143,
+    };
+    expect(check(result, { reportedPText: '.143', statisticText: '1.48' }).verdict)
+      .toBe(CONSISTENT);
+    // A statistic printed to more decimals leaves less room, and the same
+    // reported p is then an error.
+    expect(check({ ...result, statistic: 1.4800 },
+      { reportedPText: '.143', statisticText: '1.4800' }).verdict).toBe(INCONSISTENT);
+  });
+
+  it('a reported p of zero is always an error, whatever the computed value is', () => {
+    const result = {
+      test_type: 't', statistic: 12.0, df1: 30, df2: null, p_operator: '=', p_value: 0.0,
+    };
+    expect(check(result, { reportedPText: '.000', statisticText: '12.0' }).verdict)
+      .toBe(INCONSISTENT);
+  });
+
+  it('"ns" reads as the reported p being greater than alpha', () => {
+    const notSignificant = {
+      test_type: 't', statistic: 0.54, df1: 178, df2: null, p_operator: 'ns', p_value: null,
+    };
+    expect(check(notSignificant, { statisticText: '0.54' }).verdict).toBe(CONSISTENT);
+    // A statistic that is significant contradicts the claim of no significance.
+    const significant = { ...notSignificant, statistic: 5.0 };
+    expect(check(significant, { statisticText: '5.0' }).verdict).toBe(DECISION_ERROR);
+  });
+
+  it('< and > compare against the near edge of the rounding interval', () => {
+    // p < .01 with a computed .0099: the paper's bound holds.
+    const holds = {
+      test_type: 't', statistic: 2.70, df1: 90, df2: null, p_operator: '<', p_value: 0.01,
+    };
+    expect(check(holds, { reportedPText: '.01', statisticText: '2.70' }).verdict)
+      .toBe(CONSISTENT);
+    // p < .001 with a computed .008 does not. Both sit under alpha, so the
+    // paper's conclusion still holds and the verdict is not a decision error.
+    const tooTight = { ...holds, p_value: 0.001 };
+    expect(check(tooTight, { reportedPText: '.001', statisticText: '2.70' }).verdict)
+      .toBe(INCONSISTENT);
+    // p < .05 claimed where the statistic gives .38 flips the conclusion.
+    const flips = { ...holds, statistic: 0.88, p_value: 0.05 };
+    expect(check(flips, { reportedPText: '.05', statisticText: '0.88' }).verdict)
+      .toBe(DECISION_ERROR);
+  });
+});
+
+describe('decimalsOf', () => {
+  it('reads the digits after the point straight off the printed text', () => {
+    expect(decimalsOf('2.45')).toBe(2);
+    expect(decimalsOf('5.1')).toBe(1);
+    expect(decimalsOf('12')).toBe(0);
+    expect(decimalsOf('<.001')).toBe(3);
+  });
+
+  it('falls back to Python\'s repr of the float when no text is given', () => {
+    // Mirrors the reference's `_decimals(repr(float(x)))` fallback, used by
+    // `roundingInterval` when a caller has no printed text for the
+    // statistic, and by `check` when it has none for the p-value.
+    expect(decimalsOf(2.45)).toBe(2);
+    expect(decimalsOf(5.1)).toBe(1);
+    // Python writes 1e-05 for this magnitude, which carries no decimal
+    // point at all, so the count is zero rather than five.
+    expect(decimalsOf(1e-5)).toBe(0);
+  });
+});
+
+describe('roundingInterval', () => {
+  it("brackets the p-value a rounded statistic could have implied", () => {
+    // t(67) = 1.48 stands for anything in [1.475, 1.485]; the end nearer
+    // zero gives the larger p.
+    const [lowP, upP] = roundingInterval(
+      { test_type: 't', statistic: 1.48, df1: 67, df2: null }, '1.48',
+    );
+    expect(upP).toBeCloseTo(computeP('t', 1.475, 67), 9);
+    expect(lowP).toBeCloseTo(computeP('t', 1.485, 67), 9);
+  });
+
+  it('swaps which end is near zero for a negative statistic', () => {
+    const [lowP, upP] = roundingInterval(
+      { test_type: 't', statistic: -1.48, df1: 67, df2: null }, '1.48',
+    );
+    expect(upP).toBeCloseTo(computeP('t', -1.475, 67), 9);
+    expect(lowP).toBeCloseTo(computeP('t', -1.485, 67), 9);
+  });
+
+  it('gives up when the interval cannot be computed', () => {
+    expect(roundingInterval({ test_type: 't', statistic: 2, df1: 0, df2: null }, '2'))
+      .toEqual([null, null]);
+  });
+});
+
+describe('pyRound', () => {
+  // `check` rounds `lowP`/`upP` to the p-value's decimals before comparing
+  // them with the reported p (the `=` branch), so a value that lands
+  // exactly halfway decides a verdict, and this is the one place the port
+  // must match Python's tie-breaking rather than JavaScript's own. Every
+  // value here was checked against the project's own venv's
+  // `python -c "print(round(x, n))"`.
+
+  it('breaks a tie to the even neighbour, the way Python does and toFixed does not', () => {
+    expect(pyRound(2.5, 0)).toBe(2);
+    expect(pyRound(3.5, 0)).toBe(4);
+    expect(pyRound(0.125, 2)).toBe(0.12);
+    // toFixed disagrees with both: it breaks a tie away from zero.
+    expect(Number((2.5).toFixed(0))).toBe(3);
+    expect(Number((0.125).toFixed(2))).toBe(0.13);
+  });
+
+  it('rounds an ordinary, non-tied value the same as Python', () => {
+    // None of these three is an exact tie: each double's true binary value
+    // sits a little off .5, and `pyRound` must round with that true value,
+    // not with the printed one.
+    expect(pyRound(0.045, 2)).toBe(0.04);
+    expect(pyRound(0.035, 2)).toBe(0.04);
+    expect(pyRound(2.675, 2)).toBe(2.67);
+  });
+
+  it('matches Python on p-values this file actually computes', () => {
+    expect(pyRound(0.14356030539888653, 3)).toBe(0.144);
+    expect(pyRound(0.20742997628056142, 2)).toBe(0.21);
+    expect(pyRound(0.01150271550999033, 3)).toBe(0.012);
+  });
+
+  it('keeps the sign and passes non-finite values through unchanged', () => {
+    expect(pyRound(-0.125, 2)).toBe(-0.12);
+    expect(pyRound(NaN, 2)).toBeNaN();
+    expect(pyRound(Infinity, 2)).toBe(Infinity);
   });
 });
 

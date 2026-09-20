@@ -42,10 +42,12 @@ function findWithPattern(windowText, line) {
   return extractWithSpans(windowText).map((e) => ({
     test_type: e.test_type,
     statistic: parseNumber(e.statistic),
+    statisticText: e.statistic,
     df1: parseNumber(e.df1),
     df2: parseNumber(e.df2),
     p_operator: e.p_operator,
     p_value: parseNumber(e.p_value),
+    reportedPText: e.p_value,
     source: 'pattern',
     line,
     spanStart: e.start,
@@ -67,10 +69,12 @@ async function findWithModel(windowText, line, model) {
     out.push({
       test_type: (parts.TEST || '').trim().toLowerCase() || 't',
       statistic,
+      statisticText: parts.STAT,
       df1: parseNumber(parts.DF1),
       df2: parseNumber(parts.DF2),
       p_operator: operatorFromParts(parts),
       p_value: parseNumber(parts.PVAL),
+      reportedPText: parts.PVAL,
       source: 'model',
       line,
       spanStart,
@@ -167,6 +171,7 @@ function withSpan(found, window, scannedText) {
 }
 
 function checkOne(found) {
+  const { statisticText, reportedPText, ...rest } = found;
   const outcome = check({
     test_type: found.test_type,
     statistic: found.statistic,
@@ -174,9 +179,18 @@ function checkOne(found) {
     df2: found.df2,
     p_operator: found.p_operator,
     p_value: found.p_value,
-  }, { alpha: ALPHA });
+  }, {
+    alpha: ALPHA,
+    // Both captures are free here: the pattern branch carries them from its
+    // regex groups, and the model branch from the span text its tags
+    // covered. Threading them lets the rounding rule allow for how the
+    // statistic itself was printed, not only the p-value; neither is kept
+    // on the returned result, which stays the same shape it always was.
+    statisticText,
+    reportedPText,
+  });
   return {
-    ...found,
+    ...rest,
     verdict: outcome.verdict,
     computed_p: outcome.computed_p,
     reason: outcome.reason,

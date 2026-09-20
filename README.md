@@ -127,8 +127,12 @@ The package contains its own incomplete beta and incomplete gamma functions,
 in `src/special.js`. It does not use a statistics library. The comparison is
 closed-form mathematics, so a model output never changes a verdict.
 
-`check` needs the p-value text exactly as the paper writes it, for example
-`.03`. The number of decimals tells the check how much the author rounded.
+`check` follows statcheck's own rounding rule (`error_test` in statcheck
+1.5.0): it needs the p-value text exactly as the paper writes it, for
+example `.03`, and the test statistic's text too, for example `1.48`. The
+number of decimals in each tells the check how much its author rounded,
+and the comparison allows for both roundings at once, the way statcheck
+itself does. See `docs/TUTORIAL.md` section 6 for the rule in full.
 
 ## Tests
 

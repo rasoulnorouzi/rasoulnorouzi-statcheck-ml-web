@@ -323,9 +323,12 @@ sides, and this hand-built window is 25.
 ```
 
 `F(1, 40) = 6.20` implies p = .01703, three thousandths above the reported
-`.016`; at three reported decimals the tolerance is half of the last
-place, `.0005`, so this one genuinely disagrees. Restoring the operator is
-not the same as making the paper's arithmetic check out.
+`.016`. Section 6 below explains the exact rule; here it is enough to say
+that this call passed no `statisticText`, so the statistic's own rounding
+is read off the number itself, `6.2`, one printed decimal, and the
+interval that opens, `[.0166, .0175]`, still does not reach down to
+`.016`. Restoring the operator is not the same as making the paper's
+arithmetic check out.
 
 `loadKit` is what makes every rule above shared rather than restated: it
 reads `kit/manifest.json`, then reads and sha256-hashes every file the
@@ -631,32 +634,38 @@ documents}`, `documents` holding every `docReport` unchanged; only
 ## 6. Reading a verdict
 
 `check` returns one of four strings. Each, with one executed call
-(`reportedPText` is the p-value exactly as the paper prints it, `.022` and
-so on, and is what lets the tolerance below match the paper's own
-rounding):
+(`reportedPText` is the p-value exactly as the paper prints it, `statisticText`
+is the test statistic exactly as the paper prints it, `.022` and `2.45` and
+so on, and both are what let the rounding rule below match the paper's own):
 
-**`consistent`** — the reported and computed p-values agree within
-tolerance:
+**`consistent`** — the reported and computed p-values agree, once both
+roundings are allowed for:
 
-```json
-{ "verdict": "consistent", "computed_p": 0.022315728160948536, "reported_p": 0.022, "reason": "", "missing": [] }
+```js
+check({ test_type: 't', statistic: 2.45, df1: 23, df2: null, p_operator: '=', p_value: 0.022 },
+  { reportedPText: '.022', statisticText: '2.45' })
+// -> { verdict: "consistent", computed_p: 0.022315728160948536, reported_p: 0.022, reason: "", missing: [] }
 ```
 
 **`inconsistent`** — they disagree, but agree about significance at
 `alpha` (both sides of `.05`, here):
 
-```json
-{ "verdict": "inconsistent", "computed_p": 0.01702995545478932, "reported_p": 0.016,
-  "reason": "the reported and computed p-values disagree", "missing": [] }
+```js
+check({ test_type: 'f', statistic: 6.20, df1: 1, df2: 40, p_operator: '=', p_value: 0.016 },
+  { reportedPText: '.016', statisticText: '6.20' })
+// -> { verdict: "inconsistent", computed_p: 0.01702995545478932, reported_p: 0.016,
+//      reason: "the reported and computed p-values disagree", missing: [] }
 ```
 
 **`decision_error`** — they disagree about significance itself: `t(46) =
 1.8` implies p = .0784, which is not significant at .05, while the paper
 reported `p = .04`, which is:
 
-```json
-{ "verdict": "decision_error", "computed_p": 0.07842066481562257, "reported_p": 0.04,
-  "reason": "the reported and computed p-values disagree about significance", "missing": [] }
+```js
+check({ test_type: 't', statistic: 1.8, df1: 46, df2: null, p_operator: '=', p_value: 0.04 },
+  { reportedPText: '.04', statisticText: '1.80' })
+// -> { verdict: "decision_error", computed_p: 0.07842066481562257, reported_p: 0.04,
+//      reason: "the reported and computed p-values disagree about significance", missing: [] }
 ```
 
 **`undecidable`** — a required part is missing, here `df1` for a `t` test:
@@ -666,43 +675,61 @@ reported `p = .04`, which is:
   "reason": "no degrees of freedom found beside this result", "missing": ["df1"] }
 ```
 
-**The rounding rule.** A reported `.016` stands for anything that rounds
-to `.016` at three decimals, so the tolerance is half of the last reported
-place, `.0005`; a bare `<.001` carries its three decimals through the
-operator the same way, and an operator of `<` or `>` is compared as a
-strict inequality with no tolerance at all, since there is no rounding to
-allow for.
+**The rounding rule.** `check` follows statcheck's own rule, taken from
+`error_test` and `decision_error_test` in statcheck 1.5.0. Both numbers in
+a paper are rounded, and the rule allows for both. `roundingInterval`
+computes `[lowP, upP]`, the p-values the two ends of the printed statistic
+imply: a statistic printed `1.48` stands for anything in `[1.475, 1.485]`,
+the end nearer zero gives the larger p and the end further away gives the
+smaller one, and a negative statistic swaps which end is which. With a
+reported `=`, the result is consistent when the reported p lies in
+`[round(lowP, pDec), round(upP, pDec)]`, where `pDec` is the decimals of
+the *p-value* as printed; with `<` it is consistent when
+`reported >= lowP`; with `>` when `reported <= upP`. `ns` reads as
+`p_operator: '>'` against `alpha` itself. A reported p of zero or less is
+always an error, whatever the statistic implies — no test gives exactly
+zero. `pyRound` is the one place this file must match Python's rounding
+rather than JavaScript's own: Python's `round` breaks a tie at the last
+digit to the even neighbour, and `Number.prototype.toFixed` breaks it away
+from zero instead, so `check` never calls `toFixed` where a verdict is on
+the line.
 
-**Counting the decimals.** When `reportedPText` is not given, the decimal
-count comes from Python's own `repr` of the float — the shortest digit
-string that reads back to the same double — because that is what the
-reference implementation counts, and JavaScript's default number-to-string
-does not always agree with it. The gap shows up at the edges: `String(1e-5)`
-is `"0.00001"` in JavaScript but `"1e-05"` in Python, and `pythonFloatText`
-in `src/pvalue.js` reproduces the Python spelling rather than the
-JavaScript one. That spelling has no decimal point in it, so the counted
-tolerance falls back to `0.5` — wide enough to call almost anything
-consistent:
+**Counting the decimals.** When `reportedPText` or `statisticText` is not
+given, `decimalsOf` falls back to counting Python's own `repr` of the
+number — the shortest digit string that reads back to the same double —
+because that is what the reference implementation counts, and
+JavaScript's default number-to-string does not always agree with it. The
+gap shows up at the edges: `String(1e-5)` is `"0.00001"` in JavaScript but
+`"1e-05"` in Python, and `pythonFloatText` in `src/pvalue.js` reproduces
+the Python spelling rather than the JavaScript one. That spelling has no
+decimal point in it, so the fallback counts zero decimals rather than
+five:
 
 ```js
 check({ test_type: 't', statistic: 10, df1: 20, df2: null, p_operator: '=', p_value: 1e-5 })
-// -> { verdict: "consistent", computed_p: 3.163781758714393e-9, reported_p: 0.00001, reason: "", missing: [] }
+// -> { verdict: "inconsistent", computed_p: 3.163781758714393e-9, reported_p: 0.00001,
+//      reason: "the reported and computed p-values disagree", missing: [] }
 ```
 
 `t(20) = 10` implies p ≈ 3.16 × 10⁻⁹, three orders of magnitude away from
-the reported `1e-5` — and it still passes, because no `reportedPText` was
-given to say how many decimals `1e-5` was rounded to. Always pass the
-literal text the paper prints, not just the parsed number.
+the reported `1e-5`, and the verdict catches it even with neither text
+given: the statistic's own fallback rounding (one decimal, `"10.0"`) still
+only opens the interval to about `10 ± 0.05`, nowhere near wide enough,
+and zero decimals of tolerance on the p-value side does not save it either.
+Always pass the literal text the paper prints, for both the statistic and
+the p-value, rather than relying on this fallback — a paper that writes
+`10.00` leaves far less room than one that writes `10`, and only the text
+says which.
 
-**The known difference from R statcheck.** `results/REPORT.md` section 7
-compares this project's verdicts with the R package's, on the results the
-R package itself reports after repair: 135 agree, 15 disagree, 2 carry no
-p-value to compare. Both causes are rounding conventions, not extraction
-faults. R accepts a reported p-value when the interval implied by the
-*rounded* test statistic contains it; this project does not widen the
-check that way yet. And this project accepts a p-value reported as zero or
-as a fixed small bound (`p < .001` reported as if it meant exactly that)
-where R flags it instead.
+**Agreement with R statcheck.** `results/REPORT.md` section 7 compares
+this project's p-value arithmetic with the R package's, on the results the
+R package itself reports after repair: all 152 verdicts agree, and none
+carry no p-value to compare. Reaching that took the same correction this
+port just received: until 2026-09-20 the rule allowed only for the
+rounding of the reported p-value, not of the test statistic, and so called
+some correctly reported results errors. The rule is now statcheck's own in
+all three ports, and the known difference from R statcheck this section
+used to describe is closed.
 
 ## 7. Choosing a model
 
