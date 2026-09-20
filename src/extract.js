@@ -29,10 +29,16 @@ const PATTERNS = {
   z: new RegExp(
     String.raw`\bz\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
     String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+  // `\b` in JavaScript only knows the ASCII word characters, so it does not
+  // mark a boundary before χ the way Python's Unicode-aware `\b` does: with a
+  // space on both sides, JS's `\b` never fires next to a Greek letter at all.
+  // `(?<![\p{L}\p{N}_])` is the Unicode-aware replacement, matched only
+  // against what comes before, which is all this pattern ever needed `\b`
+  // for.
   chi2: new RegExp(
-    String.raw`\b(?:χ\s*2|χ2|chi2|X2|c2)\s*\(\s*(?<df1>${NUM})` +
+    String.raw`(?<![\p{L}\p{N}_])(?:χ\s*2|χ2|chi2|X2|c2)\s*\(\s*(?<df1>${NUM})` +
     String.raw`(?:\s*,\s*N\s*[=<>]\s*(?<n>[\d,]+))?\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'giu'),
   q: new RegExp(
     String.raw`\bQ(?:w|b)?\s*\(\s*(?<df1>${NUM})\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
     String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),

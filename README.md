@@ -24,12 +24,33 @@ This table lists every stage and says which ones this package has now.
 | kit loading and verification | yes | `loadKit` |
 | normalise | yes | `normalize` |
 | extract (regex baseline) | yes | `extract` |
-| prefilter | not yet | |
-| repair | not yet | |
-| model (GRU-CRF, ONNX) | not yet | |
-| group | not yet | |
+| prefilter | yes | `prefilter` |
+| repair | yes | `repair` |
+| model (GRU-CRF, ONNX) | yes | `loadModel`, `tag` |
+| group | yes | `group` |
 | p-value check | yes | `computeP`, `check` |
+| whole pipeline | yes | `checkText` |
 | PDF reading in a browser | not yet | |
+
+## The model
+
+`loadModel(kit)` reads the shipped GRU-CRF model — `tagger.onnx`, its
+character map, and its decoder — and creates an `onnxruntime-web`
+inference session on the WASM backend, in Node and in a browser alike.
+`tag(text, model)` runs it over one window of text and returns one BIOES
+tag per character, decoded with the same Viterbi pass as the Python and R
+ports when the model carries a CRF head.
+
+`checkText(text, kit, model)` runs the whole pipeline: normalise, repair,
+prefilter, then per window the pattern first and the model after it, adding
+only what the pattern did not already find, then the p-value check. Pass
+`null` in place of `model` to run the pattern alone.
+
+    import { loadKit, loadModel, checkText } from 'statcheck-ml';
+
+    const kit = await loadKit('kit');
+    const model = await loadModel(kit);
+    const { results } = await checkText(documentText, kit, model);
 
 ## Kit
 
@@ -54,10 +75,13 @@ closed-form mathematics, so a model output never changes a verdict.
 
     npm test
 
-The tests load the kit and check its hashes. Then they run every normalise,
-extract and p-value case from `kit/parity/cases.json` against this package's
-code. The p-value cases must agree with the Python reference to 1 part in
-1e9. The special functions must agree with SciPy to 1 part in 1e12.
+The tests load the kit and check its hashes. Then they run every case from
+`kit/parity/cases.json` — normalise, extract, prefilter, repair, model,
+group and the whole pipeline — against this package's code. The p-value
+cases must agree with the Python reference to 1 part in 1e9. The special
+functions must agree with SciPy to 1 part in 1e12. The model's raw logits
+must agree with the ONNX reference run to 1e-3 absolute, and every argmax
+tag must agree exactly.
 
 To see the largest error each suite measured, let the console through:
 

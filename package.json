@@ -25,5 +25,8 @@
     "type": "git",
     "url": "https://github.com/rasoulnorouzi/statcheck-ml-web"
   },
-  "homepage": "https://rasoulnorouzi.github.io/statcheck-ml-web/"
+  "homepage": "https://rasoulnorouzi.github.io/statcheck-ml-web/",
+  "dependencies": {
+    "onnxruntime-web": "^1.30.0"
+  }
 }
