@@ -6,8 +6,6 @@
 // only place that needs to know where the files are and what they should
 // hash to.
 
-import { createHash } from 'node:crypto';
-
 const TEXT_SUFFIXES = ['.json', '.jsonl', '.csv', '.txt', '.md'];
 
 const SPEC_FILES = {
@@ -35,7 +33,14 @@ function bytesForHashing(bytes, relPath) {
 }
 
 async function sha256Hex(bytes, inNode) {
-  if (inNode) return createHash('sha256').update(bytes).digest('hex');
+  // `node:crypto` is imported here, not at module scope, for the same reason
+  // `makeReader` imports `node:fs/promises` and `node:path` lazily below: a
+  // browser cannot resolve a `node:` specifier at all, even one this branch
+  // never runs, because module resolution happens before any code executes.
+  if (inNode) {
+    const { createHash } = await import('node:crypto');
+    return createHash('sha256').update(bytes).digest('hex');
+  }
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('');
 }

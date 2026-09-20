@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>statcheck-ml</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --border: #ccc;
+    --bg-drop: #fafafa;
+    --consistent: #2f7d32;
+    --inconsistent: #a83232;
+    --decision-error: #a83232;
+    --undecidable: #6b6b6b;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+    padding: 1.5rem;
+    max-width: 60rem;
+  }
+  h1 {
+    font-size: 1.1rem;
+    margin: 0 0 1rem 0;
+  }
+  #drop-zone {
+    border: 1px dashed var(--border);
+    background: var(--bg-drop);
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+  }
+  #drop-zone.drag-over {
+    border-style: solid;
+  }
+  #file-input {
+    display: none;
+  }
+  #status-line {
+    margin: 0.75rem 0;
+    white-space: pre-wrap;
+  }
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin-top: 0.75rem;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 0.3rem 0.5rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  th {
+    font-weight: normal;
+    background: var(--bg-drop);
+  }
+  .verdict-consistent { color: var(--consistent); }
+  .verdict-inconsistent { color: var(--inconsistent); }
+  .verdict-decision_error { color: var(--decision-error); font-weight: bold; }
+  .verdict-undecidable { color: var(--undecidable); }
+  #download-json {
+    display: inline-block;
+    margin-top: 0.75rem;
+  }
+  footer {
+    margin-top: 2rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  footer a {
+    color: inherit;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --border: #444;
+      --bg-drop: #1c1c1c;
+      --consistent: #6fcf73;
+      --inconsistent: #e08080;
+      --decision-error: #e08080;
+      --undecidable: #a0a0a0;
+    }
+    body { background: #111; color: #ddd; }
+  }
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "onnxruntime-web": "./vendor/ort.wasm.min.mjs"
+  }
+}
+</script>
+</head>
+<body>
+<h1>statcheck-ml</h1>
+
+<div id="drop-zone">
+  drop a PDF here, or click to choose a file
+  <input id="file-input" type="file" accept="application/pdf,.pdf">
+</div>
+
+<p id="status-line">loading&hellip;</p>
+
+<a id="download-json" href="" download="statcheck-ml-report.json" hidden>download JSON</a>
+
+<p id="empty-note" hidden>no results found.</p>
+<table id="results-table" hidden>
+  <thead>
+    <tr>
+      <th>line</th>
+      <th>source</th>
+      <th>test</th>
+      <th>statistic</th>
+      <th>df</th>
+      <th>operator</th>
+      <th>reported p</th>
+      <th>computed p</th>
+      <th>verdict</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<footer>
+  <p>
+    <a href="https://rasoulnorouzi.github.io/statcheck-ml-web/">https://rasoulnorouzi.github.io/statcheck-ml-web/</a><br>
+    <a href="https://github.com/rasoulnorouzi/statcheck-ml-web">statcheck-ml-web</a> &middot;
+    <a href="https://github.com/rasoulnorouzi/ml-statcheck">the mother repository</a>
+  </p>
+</footer>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>

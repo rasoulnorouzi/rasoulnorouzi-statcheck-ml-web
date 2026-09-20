@@ -36,3 +36,19 @@
   case exercised a real χ before this, so it surfaced as a `pipeline` case
   the model had to cover for with a worse guess. Replaced with a Unicode-
   aware lookbehind.
+- `pdf`: `pdfToText` and `checkPdf`, reading a PDF with `pdfjs-dist`, using
+  the same y-coordinate line grouping as the mother repository's
+  `js/extract.js` and joining pages the way
+  `statcheck_ml.pipeline.Pipeline.extract_text` does. Checked against the
+  Python pipeline on a damaged sample paper: every `(test_type, statistic,
+  verdict)` triple agreed.
+- Fixed `loadKit`: `node:crypto` was imported at module scope, so the whole
+  module failed to load in a browser even though the import was only ever
+  used on the Node path. Moved next to the other Node-only imports in the
+  same file, which are already lazy for this reason.
+- `demo/`: a plain page — drop a PDF, get a results table and a JSON
+  download — with the WASM builds of `onnxruntime-web` and `pdfjs-dist`
+  vendored under `demo/vendor/` for a static host that cannot read
+  `node_modules`.
+- `.github/workflows/test.yml` (Node 20 and 24) and `pages.yml` (deploys
+  the repository root to GitHub Pages on push to `main`).

@@ -10,4 +10,5 @@ export { loadModel, tag } from './model.js';
 export { prefilter } from './prefilter.js';
 export { repair } from './repair.js';
 export { group } from './group.js';
-export { checkText } from './pipeline.js';
+export { checkText, checkPdf } from './pipeline.js';
+export { pdfToText } from './pdf.js';

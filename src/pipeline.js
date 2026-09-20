@@ -17,6 +17,7 @@ import { extract } from './extract.js';
 import { groupSpans, tagsToSpans, operatorFromParts } from './group.js';
 import { tag } from './model.js';
 import { check, parseNumber } from './pvalue.js';
+import { pdfToText } from './pdf.js';
 
 const ALPHA = 0.05;
 
@@ -153,4 +154,25 @@ export async function checkText(text, kit, model) {
   stages.not_found = notFound;
 
   return { results: checked, stages };
+}
+
+/**
+ * Read a PDF and check every statistical result in it.
+ *
+ * `pdfToText` produces unnormalised text the same way as
+ * `statcheck_ml.pipeline.Pipeline.extract_text` does for the `pymupdf`
+ * engine, and `checkText` runs the normalise stage that follows it, so this
+ * is only the two stages composed.
+ *
+ * @param {ArrayBuffer|Uint8Array} data The PDF itself.
+ * @param {object} kit From `loadKit`.
+ * @param {?{session, charmap, decoder}} [model] From `loadModel`.
+ * @param {{pdfjs: object, onProgress?: (page: number, total: number) => void}} pdfOptions
+ *   Forwarded to `pdfToText`; `pdfjs` is required.
+ * @returns {Promise<{results: Array<object>, stages: object, pages: number}>}
+ */
+export async function checkPdf(data, kit, model, pdfOptions) {
+  const { text, pages } = await pdfToText(data, pdfOptions);
+  const { results, stages } = await checkText(text, kit, model);
+  return { results, stages, pages };
 }
