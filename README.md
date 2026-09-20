@@ -158,11 +158,15 @@ command that produced the Python results it compares against.
 ## Demo page
 
 `demo/index.html` and `demo/app.js` are a plain page with no build step and
-no framework: a drop zone for a PDF, a results table, and a JSON download.
-It vendors the two runtimes a static host cannot fetch from `node_modules`
-— `onnxruntime-web`'s WASM build and `pdfjs-dist`'s browser build — under
-`demo/vendor/`; see `demo/vendor/VERSIONS.md` for what was copied and from
-which package version.
+no framework: a `[ choose PDFs ]` button and a drop zone take up to ten PDFs
+at once, checked one at a time with a status line per file, then a summary
+table, a results table and traceable quote per file, and three downloads
+(`[ download JSON ]`, `[ download CSV ]`, `[ download Markdown ]`) built with
+`toJSON`/`toCSV`/`toMarkdown` over the whole run. It vendors the two runtimes
+a static host cannot fetch from `node_modules` — `onnxruntime-web`'s WASM
+build and `pdfjs-dist`'s browser build — under `demo/vendor/`; see
+`demo/vendor/VERSIONS.md` for what was copied and from which package
+version.
 
 Serve the repository root and open `/demo/`:
 

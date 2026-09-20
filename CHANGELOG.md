@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+- `demo/`: the page now takes up to ten PDFs at once, from a real
+  `[ choose PDFs ]` button or the drop zone, checked one at a time with a
+  status line per file (`onProgress` reading its pages) and one summary
+  line when the run ends. A summary table lists every file (title, pages,
+  result count, verdict tally, or `could not read` with the error's
+  message), and each file gets its own results section — title (noting
+  `(from the largest text on page 1)` when that is where it came from),
+  a results table with `page, line, test, statistic, df, op, reported p,
+  computed p, verdict, source`, and a dimmed row under each result carrying
+  its exact quote and the sentence around it. Three links —
+  `[ download JSON ]`, `[ download CSV ]`, `[ download Markdown ]` — build
+  `statcheck-ml-report.json`/`.csv`/`.md` with `toJSON`/`toCSV`/`toMarkdown`
+  over every file of the run, revoking the previous run's object URLs
+  first. The pure parts of this (file filtering to the ten-file cap,
+  verdict tallies, section headings, the download file names) live in
+  `demo/support.js`, covered by `test/demo.test.js` under plain Node.
+
 ## 0.1.0
 
 - Package skeleton: `package.json`, `LICENSE`, tests with vitest.

@@ -858,7 +858,28 @@ async function loadOnce() {
 }
 ```
 
-The drop handler, unchanged from `demo/app.js`:
+The page takes up to ten PDFs at once, from a real `[ choose PDFs ]` button
+or the drop zone, both wired to the same hidden, `multiple` file input. The
+pure parts of this — which files a run accepts, the verdict tally, a
+section's heading, the three download file names — live in
+`demo/support.js`, so `test/demo.test.js` can exercise them under plain
+Node; `demo/app.js` imports them rather than restating the logic:
+
+```js
+import {
+  MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
+} from './support.js';
+
+chooseButton.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', () => {
+  const { files } = fileInput;
+  fileInput.value = '';
+  runFiles(files);
+});
+```
+
+The drop handler, unchanged in shape from before, now passes the whole
+`FileList` through:
 
 ```js
 dropZone.addEventListener('dragover', (event) => {
@@ -869,33 +890,66 @@ dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-ove
 dropZone.addEventListener('drop', (event) => {
   event.preventDefault();
   dropZone.classList.remove('drag-over');
-  handleFile(event.dataTransfer.files[0]);
+  runFiles(event.dataTransfer.files);
 });
 ```
 
-`handleFile` rejects a non-PDF by name/MIME before ever touching the
-pipeline, times the run with `performance.now()`, and ends on one status
-line: `` `${kitStatusPrefix()} · ${results.length} result(s) in ${seconds}s` ``.
+`runFiles` first splits the file list with `selectFiles(fileList, MAX_FILES)`:
+a non-PDF is rejected by name (`rejected <name>: not a PDF`), and a PDF past
+the tenth is dropped with one line saying how many were kept and how many
+were dropped, never one line per dropped file. It then checks the accepted
+files one at a time — not in parallel, so the page stays responsive and the
+status log reads in the order the files were given — passing `onProgress` to
+`checkPdf` so each file's own status line updates as its pages are read:
+`` `[2/5] paper.pdf: reading page 3 of 12 …` ``. A file `checkPdf` cannot
+read gets its own status line and a summary-table row that says
+`could not read`, with the error's message, and the run continues with the
+files after it. When every file is done, one summary line closes the run:
+`` `done: 5 files, 12 results, consistent: 9, inconsistent: 3, 4.31s` ``.
+
+Below the log: a summary table, one row per file (file name, title, pages,
+result count, verdict tally, or `could not read` for a failed one); then one
+section per file with a heading (the title, noting `(from the largest text
+on page 1)` when `titleSource` says so, and the file name), a results table
+with `page, line, test, statistic, df, op, reported p, computed p, verdict,
+source`, and under each result row a second, dimmed row carrying its exact
+quote and the sentence around it — kept as a row directly under the result
+it explains, not a separate numbered list, so a reader never has to
+cross-reference a row number against a list further down the page. Three
+links close the page: `[ download JSON ]`, `[ download CSV ]`,
+`[ download Markdown ]`, built with `toJSON`/`toCSV`/`toMarkdown` over every
+file of the run and named `statcheck-ml-report.json`/`.csv`/`.md`. Starting
+a new run revokes the previous run's object URLs before creating new ones.
 
 To verify a deployment by hand, in order:
 
-1. Load the page. The status line moves through `loading kit…`, `…
-   loading model…`, to `… ready`, naming the kit version, the model, and
-   the mother commit.
-2. Click the dashed box; the native file picker opens.
-3. Pick or drop a non-PDF file. The status line reports `<name> is not a
-   PDF` and the table does not change.
-4. Drag a PDF over the box without dropping it. The box gets a solid
+1. Load the page. The status line above the drop zone moves through
+   `loading kit…`, `… loading model…`, to `… ready`, naming the kit
+   version, the model, and the mother commit.
+2. Click `[ choose PDFs ]`; the native file picker opens and accepts
+   several files at once.
+3. Pick or drop a mix of PDFs and non-PDFs. Each non-PDF gets its own
+   status line naming it as rejected; the PDFs still run.
+4. Pick or drop more than ten PDFs. One status line says the run kept the
+   first ten and how many were dropped.
+5. Drag a PDF over the box without dropping it. The box gets a solid
    border (the `drag-over` class) and loses it again on drag-leave.
-5. Drop a PDF. The status line reads `checking <name>…`, then the table
-   fills, one row per result, the verdict column colored green for
-   consistent and red for inconsistent or a decision error.
-6. Drop a PDF with no readable result. The table stays hidden and a "no
-   results found." note appears instead.
-7. Check that the "download JSON" link appeared and that the file it
-   downloads has `source`, `pages`, `results`, and `stages` keys.
-8. Toggle the OS light/dark setting and confirm the page follows it
-   (`prefers-color-scheme` in `demo/index.html`'s stylesheet).
+6. Drop several PDFs. A status line appears per file, updating as its
+   pages are read, then a final line with the file, result and verdict
+   counts and the run's duration; then a summary table, one row per file;
+   then one results section per file, its verdict column colored green for
+   consistent and red for inconsistent or a decision error, and a dimmed
+   quote-and-context row under each result.
+7. Drop a PDF with no readable result. Its section says "no results found
+   in this file." instead of a table.
+8. Drop a PDF PDF.js cannot read (a non-PDF renamed to `.pdf`, for
+   example). Its summary row reads `could not read` with the error
+   message, and the other files' rows are unaffected.
+9. Click all three download links and confirm the files download as
+   `statcheck-ml-report.json`, `.csv` and `.md`, each covering every file
+   of the run.
+10. Toggle the OS light/dark setting and confirm the page follows it
+    (`prefers-color-scheme` in `demo/index.html`'s stylesheet).
 
 ## 10. Limits
 

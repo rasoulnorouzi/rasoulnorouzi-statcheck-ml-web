@@ -27,26 +27,44 @@
   h1::before { content: "$ "; color: var(--dim); }
   p { margin: 0.25rem 0; }
   .dim { color: var(--dim); }
+  button {
+    font: inherit; color: inherit; background: none;
+    border: 1px solid var(--rule); border-radius: 0;
+    padding: 0.15rem 0.6rem; cursor: pointer;
+  }
+  button:hover, button:focus-visible { border-color: var(--fg); }
+  #choose-line { margin-top: 1.25rem; }
   #drop-zone {
-    margin: 1.25rem 0 0.75rem; padding: 0.75rem 0;
+    margin: 0.5rem 0 0.75rem; padding: 0.75rem 0;
     border-top: 1px dashed var(--rule); border-bottom: 1px dashed var(--rule);
     cursor: pointer; user-select: none;
   }
   #drop-zone::before { content: "> "; color: var(--dim); }
   #drop-zone.drag-over { border-style: solid; }
   #file-input { display: none; }
-  #status-line::before { content: "> "; color: var(--dim); }
-  #status-line { white-space: pre-wrap; }
+  #kit-status::before { content: "> "; color: var(--dim); }
+  #kit-status { white-space: pre-wrap; }
+  #status-log { margin-top: 0.25rem; }
+  #status-log p { white-space: pre-wrap; margin: 0.15rem 0; }
+  #status-log p::before { content: "> "; color: var(--dim); }
+  #downloads { margin-top: 0.85rem; }
+  #downloads a { display: inline-block; margin-right: 1.5ch; color: inherit; }
   table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
   th, td { text-align: left; padding: 0.1rem 1ch 0.1rem 0; vertical-align: top; white-space: nowrap; }
   th { font-weight: normal; color: var(--dim); border-bottom: 1px solid var(--rule); }
   td.num, th.num { text-align: right; }
+  #summary-table { margin-top: 1.25rem; }
+  .doc-section { border-top: 1px dashed var(--rule); margin-top: 1.75rem; padding-top: 0.75rem; }
+  .doc-section h2 { font-size: 14px; font-weight: bold; margin: 0 0 0.25rem; }
+  table.results-table tr.detail-row td {
+    white-space: pre-wrap; color: var(--dim);
+    border-bottom: 1px dashed var(--rule); padding-bottom: 0.6rem;
+  }
   .verdict-consistent { color: var(--ok); }
   .verdict-inconsistent, .verdict-decision_error { color: var(--bad); }
   .verdict-decision_error { font-weight: bold; }
   .verdict-undecidable { color: var(--none); }
-  #download-json { display: inline-block; margin-top: 0.75rem; color: inherit; }
-  #empty-note { margin-top: 1rem; color: var(--dim); }
+  #reports { margin-bottom: 1rem; }
   footer { margin-top: 2.5rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); color: var(--dim); }
   footer a, a { color: inherit; }
 </style>
@@ -62,36 +80,43 @@
 <h1>statcheck-ml</h1>
 <p>Finds reported test results with a character model. Checks each p-value with
 closed-form arithmetic. The model never judges; the verdict is a computation.</p>
-<p class="dim">Runs in this tab. The PDF does not leave your machine. Labels behind the
+<p class="dim">Runs in this tab. Nothing leaves your machine. Labels behind the
 model are bronze (three rater agents, no human gold set); read the numbers with that
 in mind.</p>
 
+<p id="choose-line">
+  <button id="choose-button" type="button">[ choose PDFs ]</button>
+  <span class="dim">up to 10 at once</span>
+</p>
+
 <div id="drop-zone">
-  drop a PDF here, or click to choose one
-  <input id="file-input" type="file" accept="application/pdf,.pdf">
+  drop up to 10 PDFs here, or use the button above
+  <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
 </div>
 
-<p id="status-line">loading&hellip;</p>
+<p id="kit-status">loading&hellip;</p>
+<div id="status-log"></div>
 
-<a id="download-json" href="" download="statcheck-ml-report.json" hidden>[ download JSON ]</a>
+<div id="downloads" hidden>
+  <a id="download-json" href="">[ download JSON ]</a>
+  <a id="download-csv" href="">[ download CSV ]</a>
+  <a id="download-md" href="">[ download Markdown ]</a>
+</div>
 
-<p id="empty-note" hidden>no results found.</p>
-<table id="results-table" hidden>
+<table id="summary-table" hidden>
   <thead>
     <tr>
-      <th class="num">line</th>
-      <th>source</th>
-      <th>test</th>
-      <th class="num">statistic</th>
-      <th>df</th>
-      <th>op</th>
-      <th class="num">reported p</th>
-      <th class="num">computed p</th>
-      <th>verdict</th>
+      <th>file</th>
+      <th>title</th>
+      <th class="num">pages</th>
+      <th class="num">results</th>
+      <th>verdicts</th>
     </tr>
   </thead>
   <tbody></tbody>
 </table>
+
+<div id="reports"></div>
 
 <footer>
   <p>
