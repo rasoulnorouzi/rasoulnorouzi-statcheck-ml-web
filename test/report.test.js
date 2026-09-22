@@ -116,7 +116,7 @@ describe('report', () => {
       expect(header).toEqual([
         'file', 'title', 'page', 'line', 'source', 'test_type', 'statistic',
         'df1', 'df2', 'p_operator', 'reported_p', 'computed_p', 'verdict',
-        'quote', 'context',
+        'quote', 'context', 'mode',
       ]);
 
       const expectedRows = docClean.results.length + docDamaged.results.length;
@@ -132,13 +132,16 @@ describe('report', () => {
     it('gives a document with no results one row, empty in the result columns', () => {
       const empty = {
         fileName: 'empty.pdf', title: null, titleSource: null, pages: 1, results: [], stages: {},
+        mode: 'pattern',
       };
       const csv = toCSV([empty], kitInfo);
       const lines = csv.split('\r\n').filter((l) => l !== '');
       expect(lines.length).toBe(2);
       const row = splitCsvLine(lines[1]);
       expect(row[0]).toBe('empty.pdf');
-      expect(row.slice(2)).toEqual(['', '', '', '', '', '', '', '', '', '', '', '', '']);
+      expect(row.slice(2, 15)).toEqual(['', '', '', '', '', '', '', '', '', '', '', '', '']);
+      // The mode is a property of the run, so it is there even with no result.
+      expect(row[15]).toBe('pattern');
     });
   });
 

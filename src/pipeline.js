@@ -199,16 +199,31 @@ function checkOne(found) {
 }
 
 /**
+ * Which finders read a window. `hybrid` is the cascade the report measures:
+ * statcheck's patterns first, then the model adds only what they missed.
+ * `pattern` is statcheck's own method, and `model` the model alone; both are
+ * there so a reader can see what each finder contributes.
+ */
+export const MODES = {
+  hybrid: { pattern: true, model: true },
+  pattern: { pattern: true, model: false },
+  model: { pattern: false, model: true },
+};
+
+/**
  * Read a document and check every statistical result in it.
  *
  * @param {string} text
  * @param {object} kit From `loadKit`.
  * @param {?{session, charmap, decoder}} [model] From `loadModel`. Omitted, a
  *   window is read by the pattern alone.
+ * @param {{mode?: 'hybrid'|'pattern'|'model'}} [options]
  * @returns {Promise<{results: Array<object>, stages: object}>}
  */
-export async function checkText(text, kit, model) {
-  const stages = {};
+export async function checkText(text, kit, model, { mode = 'hybrid' } = {}) {
+  const finders = MODES[mode];
+  if (!finders) throw new Error(`statcheck-ml: unknown mode ${mode}; use hybrid, pattern or model`);
+  const stages = { mode };
 
   const normalizer = createNormalizer(kit.spec.normalize, kit.spec.charmap);
   const { text: normalized, info: normalizeInfo } = normalizer.normalize(text);
@@ -226,7 +241,7 @@ export async function checkText(text, kit, model) {
   let byModel = 0;
 
   for (const w of windows) {
-    for (const f of findWithPattern(w.text, w.line)) {
+    for (const f of finders.pattern ? findWithPattern(w.text, w.line) : []) {
       const key = f.statistic != null ? roundTo3(f.statistic) : null;
       if (seen.has(key)) continue;
       seen.add(key);
@@ -239,7 +254,7 @@ export async function checkText(text, kit, model) {
     // Windows are read one at a time, on purpose: the dedup set below must
     // see the pattern's hits before the model's, in document order, or a
     // result could be credited to the wrong source.
-    for (const f of await findWithModel(w.text, w.line, model)) {
+    for (const f of await findWithModel(w.text, w.line, finders.model ? model : null)) {
       const key = f.statistic != null ? roundTo3(f.statistic) : null;
       if (key === null || seen.has(key)) continue;
       seen.add(key);
@@ -327,13 +342,13 @@ function pageOf(quote, pageTexts) {
  *   fileName: ?string}>}
  */
 export async function checkPdf(data, kit, model, pdfOptions = {}) {
-  const { fileName = null } = pdfOptions;
+  const { fileName = null, mode = 'hybrid' } = pdfOptions;
   const {
     text, pages, pageTexts, title, titleSource,
   } = await pdfToText(data, pdfOptions);
-  const { results, stages } = await checkText(text, kit, model);
+  const { results, stages } = await checkText(text, kit, model, { mode });
   const placed = results.map((r) => ({ ...r, page: pageOf(r.quote, pageTexts) }));
   return {
-    results: placed, stages, pages, title, titleSource, fileName,
+    results: placed, stages, pages, title, titleSource, fileName, mode,
   };
 }

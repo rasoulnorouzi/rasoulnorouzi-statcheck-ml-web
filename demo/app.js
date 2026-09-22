@@ -20,7 +20,7 @@ import {
 } from '../src/index.js';
 import {
   MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
-  progressBar, queueLines,
+  progressBar, queueLines, MODE_NOTES,
 } from './support.js';
 
 // `loadKit`/`loadModel` build a fetch URL with `new URL(relPath, base)`,
@@ -55,6 +55,9 @@ const clearButton = document.getElementById('clear-button');
 const progressEl = document.getElementById('progress');
 const progressBarEl = document.getElementById('progress-bar');
 const progressTextEl = document.getElementById('progress-text');
+
+const modeInputs = Array.from(document.querySelectorAll('input[name="mode"]'));
+const modeNote = document.getElementById('mode-note');
 
 //: The files chosen but not yet checked. Reading a PDF and running the model
 //: takes seconds per file, so the page waits for the reader to say when.
@@ -267,6 +270,8 @@ function resetRun() {
 async function runFiles(accepted) {
   resetRun();
   if (accepted.length === 0) return;
+  // Read once: the choice may not change halfway through a run.
+  const mode = selectedMode();
   showProgress(0, accepted.length, 0);
 
   try {
@@ -288,6 +293,7 @@ async function runFiles(accepted) {
       // eslint-disable-next-line no-await-in-loop
       const outcome = await checkPdf(data, kit, model, {
         pdfjs,
+        mode,
         fileName: file.name,
         onProgress: (page, total) => {
           line.textContent = `[${i + 1}/${n}] ${file.name}: reading page ${page} of ${total} …`;
@@ -304,6 +310,7 @@ async function runFiles(accepted) {
         pages: outcome.pages,
         results: outcome.results,
         stages: outcome.stages,
+        mode,
       });
     } catch (err) {
       line.textContent = `[${i + 1}/${n}] ${file.name}: could not read (${err.message})`;
@@ -315,6 +322,7 @@ async function runFiles(accepted) {
         pages: null,
         results: [],
         stages: {},
+        mode,
         error: err.message,
       });
     }
@@ -329,10 +337,23 @@ async function runFiles(accepted) {
   const totalResults = docReports.reduce((sum, d) => sum + d.results.length, 0);
   const overallVerdicts = formatVerdictCounts(docReports.flatMap((d) => d.results));
   appendStatusLine(
-    `done: ${n} file${n === 1 ? '' : 's'}, ${totalResults} result${totalResults === 1 ? '' : 's'}, `
+    `done: ${n} file${n === 1 ? '' : 's'}, mode ${mode}, `
+    + `${totalResults} result${totalResults === 1 ? '' : 's'}, `
     + `${overallVerdicts}, ${seconds}s`,
   );
 }
+
+function selectedMode() {
+  return modeInputs.find((input) => input.checked).value;
+}
+
+// Hover shows the note on each choice; the line under the choices shows the
+// selected one, for a reader on a touch screen or a keyboard.
+for (const input of modeInputs) {
+  input.parentElement.title = MODE_NOTES[input.value];
+  input.addEventListener('change', () => { modeNote.textContent = MODE_NOTES[selectedMode()]; });
+}
+modeNote.textContent = MODE_NOTES[selectedMode()];
 
 function showProgress(done, total, withinFile) {
   const { bar, text } = progressBar(done, total, withinFile);
@@ -370,11 +391,13 @@ runButton.addEventListener('click', async () => {
   const files = queued;
   runButton.disabled = true;
   clearButton.disabled = true;
+  for (const input of modeInputs) input.disabled = true;
   try {
     await runFiles(files);
   } finally {
     runButton.disabled = false;
     clearButton.disabled = false;
+    for (const input of modeInputs) input.disabled = false;
   }
 });
 

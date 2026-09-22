@@ -86,3 +86,7 @@
   progress bar while it works. `test/e2e.test.js` drives the page in Chromium:
   it found that choosing files through the button never worked, because
   clearing the input emptied the live `FileList` the handler was holding.
+- Three modes, in the page and in `checkText`/`checkPdf`: `hybrid` (the default),
+  `pattern` (statcheck's regular expressions alone) and `model` (the model
+  alone). Each is explained on hover and under the choices; JSON, CSV and
+  Markdown record the mode. The page credits statcheck and its authors.

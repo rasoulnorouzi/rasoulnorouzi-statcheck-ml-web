@@ -528,8 +528,9 @@ group('F(1, 40) = 6.20, p = .016', tags)
 `df1` is `null` here for the same reason as section 4: this model tagged
 no `DF1` span on this short, context-free line.
 
-**`checkText(text, kit, model)`** → `Promise<{results, stages}>`, the
-whole pipeline over already-extracted text:
+**`checkText(text, kit, model, { mode })`** → `Promise<{results, stages}>`, the
+whole pipeline over already-extracted text. `mode` is `hybrid` (the default),
+`pattern` or `model`; the next block shows the default:
 
 ```js
 await checkText('The effect was reliable, t(23) = 2.45, p = .022.', kit, model)
@@ -630,6 +631,27 @@ per result, so the table is still readable at a normal terminal width.
 `toJSON(docs, kitInfo)` gives `{tool: "statcheck-ml", kit, generated_at,
 documents}`, `documents` holding every `docReport` unchanged; only
 `generated_at` differs between two runs over the same input.
+
+**Modes.** The same two sentences, the second with its operators damaged to the
+control character U+0003, through each mode. `stages.find` counts which finder
+found what, and `source` names it on every result:
+
+```js
+for (const mode of ['hybrid', 'pattern', 'model']) {
+  const { results, stages } = await checkText(text, kit, model, { mode });
+  console.log(mode, stages.find, results.map((r) => `${r.source}:${r.statistic}:${r.verdict}`));
+}
+```
+```
+hybrid   {"by_pattern":2,"by_model":0} pattern:2.45:consistent  pattern:1.8:decision_error
+pattern  {"by_pattern":2,"by_model":0} pattern:2.45:consistent  pattern:1.8:decision_error
+model    {"by_pattern":0,"by_model":2} model:2.45:consistent  model:1.8:decision_error
+```
+
+Here the repair stage restores the damaged operator before any finder runs, so
+the patterns read both results and the model has nothing to add. On damage the
+repair cannot undo, the patterns miss results and the model finds them; that is
+where `hybrid` beats `pattern` on the holdout, F1 0.908 against 0.636.
 
 ## 6. Reading a verdict
 

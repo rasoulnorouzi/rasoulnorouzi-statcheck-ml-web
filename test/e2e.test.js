@@ -143,6 +143,43 @@ describe.skipIf(!haveBrowser)('the demo page in a browser', () => {
     expect(csv).toContain('sample_paper_damaged.pdf');
   });
 
+  it('explains each mode on hover and under the choices', async () => {
+    for (const mode of ['hybrid', 'pattern', 'model']) {
+      const title = await page.locator(`label:has(input[value="${mode}"])`).getAttribute('title');
+      expect(title.length).toBeGreaterThan(40);
+    }
+    await page.check('input[value="model"]');
+    expect(await page.locator('#mode-note').textContent()).toContain('character model alone');
+    await page.check('input[value="pattern"]');
+    expect(await page.locator('#mode-note').textContent()).toContain('regular expressions');
+  });
+
+  it('runs the patterns alone when the pattern mode is chosen', async () => {
+    await page.setInputFiles('#file-input', [join(FIXTURES, 'sample_paper.pdf')]);
+    await page.click('#run-button');
+    await page.waitForFunction(
+      () => document.getElementById('status-log').textContent.includes('done:'),
+      { timeout: 180_000 },
+    );
+    expect(await page.locator('#status-log').textContent()).toContain('mode pattern');
+    // The source is the last column of each result row.
+    const sources = await page.locator('#reports tr.result-row td:last-child').allTextContents();
+    expect(sources.length).toBeGreaterThan(0);
+    expect(new Set(sources)).toEqual(new Set(['pattern']));
+    const csv = await page.evaluate(async () => {
+      const href = document.getElementById('download-csv').getAttribute('href');
+      return (await fetch(href)).text();
+    });
+    expect(csv.split('\r\n')[1].endsWith(',pattern')).toBe(true);
+  }, 200_000);
+
+  it('credits statcheck and its makers', async () => {
+    const credit = await page.locator('#credit').textContent();
+    expect(credit).toContain('Nuijten');
+    expect(credit).toContain('mother of statcheck');
+    expect(credit).toContain('Epskamp');
+  });
+
   it('reports no console error over the whole run', () => {
     expect(errors).toEqual([]);
   });

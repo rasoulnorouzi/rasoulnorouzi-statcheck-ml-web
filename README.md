@@ -183,3 +183,19 @@ page shows each paper's title, and every result carries its page, the exact
 sentence it came from, and a verdict; the same is in the JSON, CSV and
 Markdown downloads.
 
+The page has three modes. `hybrid`, the default, runs statcheck's patterns first
+and lets the model add what they missed; it is the best on the holdout, F1 0.908.
+`pattern` runs statcheck's regular expressions alone, the classical method (F1
+0.636). `model` runs the character model alone (F1 0.904). Hover a mode, or read
+the line under the choices, for the same explanation. In code the mode is an
+option: `checkText(text, kit, model, { mode: 'pattern' })`, and every report
+records it.
+
+## Credit
+
+statcheck-ml stands on [statcheck](https://github.com/MicheleNuijten/statcheck), by
+Michèle B. Nuijten and Sacha Epskamp, with Willem Sleegers, Edoardo Costantini, Paul
+van der Laken, Sean Rife, John Sakaluk, Chris Hartgerink and Steve Haroz. Michèle
+Nuijten, the mother of statcheck, showed that a machine can read the statistics a
+paper reports and catch the ones that do not add up. This project only teaches that
+idea to read a damaged PDF. Thank you.

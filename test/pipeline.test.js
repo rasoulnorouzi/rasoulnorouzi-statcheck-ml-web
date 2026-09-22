@@ -84,3 +84,41 @@ describe('pipeline', () => {
     }
   });
 });
+
+describe('checkText modes', () => {
+  // Built from the parity documents, which the model and the pattern both
+  // read: each mode must use exactly the finders it names.
+  let kit; let model;
+  beforeAll(async () => {
+    kit = await loadKit(kitDir);
+    model = await loadModel(kit);
+  });
+
+  const doc = () => cases.find((c) => c.name === 'doc-sample-paper')
+    ?? cases[0];
+
+  it('hybrid is the default and matches passing the mode by name', async () => {
+    const byDefault = await checkText(doc().text, kit, model);
+    const byName = await checkText(doc().text, kit, model, { mode: 'hybrid' });
+    expect(byName.results).toEqual(byDefault.results);
+    expect(byDefault.stages.mode).toBe('hybrid');
+  });
+
+  it('pattern uses statcheck\'s patterns only, even with a model loaded', async () => {
+    const { results, stages } = await checkText(doc().text, kit, model, { mode: 'pattern' });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.source === 'pattern')).toBe(true);
+    expect(stages.find.by_model).toBe(0);
+  });
+
+  it('model uses the model only', async () => {
+    const { results, stages } = await checkText(doc().text, kit, model, { mode: 'model' });
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.source === 'model')).toBe(true);
+    expect(stages.find.by_pattern).toBe(0);
+  });
+
+  it('refuses a mode it does not know', async () => {
+    await expect(checkText('x', kit, model, { mode: 'regex' })).rejects.toThrow(/unknown mode/);
+  });
+});

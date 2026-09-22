@@ -14,7 +14,7 @@
 const CSV_COLUMNS = [
   'file', 'title', 'page', 'line', 'source', 'test_type', 'statistic',
   'df1', 'df2', 'p_operator', 'reported_p', 'computed_p', 'verdict',
-  'quote', 'context',
+  'quote', 'context', 'mode',
 ];
 
 /**
@@ -38,11 +38,13 @@ function csvRow(values) {
  */
 function csvRowsFor(doc) {
   if (doc.results.length === 0) {
-    return [csvRow([doc.fileName, doc.title, '', '', '', '', '', '', '', '', '', '', '', '', ''])];
+    return [csvRow([doc.fileName, doc.title, '', '', '', '', '', '', '', '', '', '', '', '', '',
+      doc.mode])];
   }
   return doc.results.map((r) => csvRow([
     doc.fileName, doc.title, r.page, r.line, r.source, r.test_type, r.statistic,
     r.df1, r.df2, r.p_operator, r.p_value, r.computed_p, r.verdict, r.quote, r.context,
+    doc.mode,
   ]));
 }
 
@@ -117,7 +119,8 @@ function markdownDoc(doc) {
   const parts = [
     `## ${escapeCell(heading)}`,
     '',
-    `File: ${doc.fileName ?? '(none)'}. Pages: ${doc.pages}. Verdicts: ${tallyVerdicts(doc.results)}.`,
+    `File: ${doc.fileName ?? '(none)'}. Pages: ${doc.pages}. Mode: ${doc.mode ?? 'hybrid'}. `
+      + `Verdicts: ${tallyVerdicts(doc.results)}.`,
   ];
   if (doc.results.length > 0) {
     parts.push('', markdownTable(doc.results), '', markdownQuoteList(doc.results));

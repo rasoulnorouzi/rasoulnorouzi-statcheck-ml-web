@@ -30,12 +30,14 @@
   h1::before { content: "$ "; color: var(--dim); }
   p { margin: 0.25rem 0; }
   .dim { color: var(--dim); }
+  /* Every button is text in brackets, like the rest of the page. */
   button {
-    font: inherit; color: inherit; background: none;
-    border: 1px solid var(--rule); border-radius: 0;
-    padding: 0.15rem 0.6rem; cursor: pointer;
+    font: inherit; color: inherit; background: none; border: 0;
+    padding: 0; cursor: pointer;
   }
-  button:hover, button:focus-visible { border-color: var(--fg); }
+  button:hover, button:focus-visible { text-decoration: underline; }
+  button:disabled { color: var(--dim); cursor: default; text-decoration: none; }
+  #run-button { font-weight: bold; margin-right: 2ch; }
   #choose-line { margin-top: 1.25rem; }
   #drop-zone {
     margin: 0.5rem 0 0.75rem; padding: 0.75rem 0;
@@ -44,10 +46,12 @@
   }
   #drop-zone::before { content: "> "; color: var(--dim); }
   #drop-zone.drag-over { border-style: solid; }
-  #drop-zone button { font: inherit; color: inherit; background: none; border: 0;
-                      padding: 0; cursor: pointer; }
-  #drop-zone button:hover { text-decoration: underline; }
   #file-input { display: none; }
+  #mode-line { margin: 0.75rem 0 0; }
+  #mode-line label { margin-left: 1.5ch; cursor: help; }
+  #mode-line input { margin: 0 0.5ch 0 0; vertical-align: -1px; }
+  #mode-note { margin-top: 0.25rem; }
+  #mode-note::before { content: "# "; }
   #queue { margin: 0.75rem 0; }
   #queue-list div::before { content: "  "; }
   #queue-list div { color: var(--dim); }
@@ -67,6 +71,9 @@
   th { font-weight: normal; color: var(--dim); border-bottom: 1px solid var(--rule); }
   td.num, th.num { text-align: right; }
   #summary-table { margin-top: 1.25rem; }
+  /* A long title or verdict tally wraps inside the column rather than
+     pushing the table past the page. */
+  #summary-table td:nth-child(2), #summary-table td:nth-child(5) { white-space: normal; }
   .doc-section { border-top: 1px dashed var(--rule); margin-top: 1.75rem; padding-top: 0.75rem; }
   .doc-section h2 { font-size: 14px; font-weight: bold; margin: 0 0 0.25rem; }
   table.results-table tr.detail-row td {
@@ -102,6 +109,14 @@ in mind.</p>
   or drop them here, up to 10 at once
   <input id="file-input" type="file" accept="application/pdf,.pdf" multiple>
 </div>
+
+<p id="mode-line" role="radiogroup" aria-label="mode">
+  <span class="dim">mode:</span>
+  <label><input type="radio" name="mode" value="hybrid" checked> hybrid</label>
+  <label><input type="radio" name="mode" value="pattern"> pattern</label>
+  <label><input type="radio" name="mode" value="model"> model</label>
+</p>
+<p id="mode-note" class="dim"></p>
 
 <div id="queue" hidden>
   <div id="queue-list"></div>
@@ -142,6 +157,14 @@ in mind.</p>
     <a href="https://github.com/rasoulnorouzi/rasoulnorouzi-statcheck-ml-web/blob/main/docs/TUTORIAL.md">tutorial</a> &middot;
     <a href="https://github.com/rasoulnorouzi/ml-statcheck">mother repository: models, dataset, report</a> &middot;
     GPL-3
+  </p>
+  <p id="credit">
+    statcheck-ml stands on <a href="https://github.com/MicheleNuijten/statcheck">statcheck</a>,
+    by Mich&egrave;le B. Nuijten and Sacha Epskamp, with Willem Sleegers, Edoardo Costantini,
+    Paul van der Laken, Sean Rife, John Sakaluk, Chris Hartgerink and Steve Haroz.
+    Mich&egrave;le Nuijten, the mother of statcheck, showed that a machine can read the
+    statistics a paper reports and catch the ones that do not add up. This page only
+    teaches that idea to read a damaged PDF. Thank you.
   </p>
 </footer>
 
