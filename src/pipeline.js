@@ -67,7 +67,7 @@ async function findWithModel(windowText, line, model) {
     if (statistic == null) continue;
     const [spanStart, spanEnd] = spanOf(groupedSpans);
     out.push({
-      test_type: (parts.TEST || '').trim().toLowerCase() || 't',
+      test_type: (parts.TEST || '').trim().toLowerCase() || null,
       statistic,
       statisticText: parts.STAT,
       df1: parseNumber(parts.DF1),

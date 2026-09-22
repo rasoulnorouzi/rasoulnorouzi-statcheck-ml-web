@@ -209,7 +209,7 @@ function buildResult(parts) {
   const stat = asNumber(parts.STAT);
   if (stat == null) return null;
   return {
-    test_type: (parts.TEST || '').trim().toLowerCase() || 't',
+    test_type: (parts.TEST || '').trim().toLowerCase() || null,
     statistic: stat,
     df1: asNumber(parts.DF1),
     df2: asNumber(parts.DF2),

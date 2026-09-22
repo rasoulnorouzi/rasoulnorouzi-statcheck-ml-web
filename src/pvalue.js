@@ -36,6 +36,7 @@ const REQUIRED_PARTS = {
 
 /** How to name each missing part to a reader. */
 const PART_NAMES = {
+  test_type: 'no test name',
   statistic: 'no test statistic',
   df1: 'no degrees of freedom',
   df2: 'no second degrees of freedom',
@@ -180,8 +181,11 @@ export function computeP(testType, statistic, df1 = null, df2 = null, oneTailed 
  */
 function missingParts(result) {
   const absent = [];
-  if (result.statistic == null) absent.push('statistic');
   const kind = String(result.test_type ?? '').trim().toLowerCase();
+  // Without the test's name no p-value can be computed: the same 7.42 with
+  // df 8 is p = .49 as a chi-square and p = .00007 as a t. It is never guessed.
+  if (kind === '') absent.push('test_type');
+  if (result.statistic == null) absent.push('statistic');
   // An unknown test name falls back to asking for df1, exactly as the
   // reference's dictionary default does. The lookup asks for an own
   // property, because a plain object also answers to "constructor" and
