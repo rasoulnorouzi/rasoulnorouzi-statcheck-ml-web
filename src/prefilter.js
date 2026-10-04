@@ -20,23 +20,8 @@ function density(line) {
   return 1 - letters / line.length;
 }
 
-/**
- * Select the text a document offers to the pattern and the model.
- *
- * A window carries the lines around a candidate line, because a result can
- * be split by a line break: on the clean corpus 18.4% of results are
- * separated from their p-value by at least one line break. The window grows
- * past the fixed line count until it holds about as much text as the window
- * the model was trained on, because a fixed line count is not a fixed amount
- * of context once a different PDF engine breaks lines at a different width.
- *
- * @param {string} text
- * @param {{spec: {prefilter: object, normalize: object}}} kit From `loadKit`.
- * @returns {Array<{start: number, end: number, line: number, text: string}>}
- *   `start` and `end` are character offsets into `text`. `line` is the index
- *   of the candidate line that made the filter keep this window.
- */
-export function prefilter(text, kit) {
+// Both exports below run this one pass over the lines.
+function scan(text, kit) {
   const spec = kit.spec.prefilter;
   // `prefilter.json` does not carry its own cap; the one normalisation
   // already applies to survive a PDF engine's line breaks is the reference.
@@ -106,6 +91,11 @@ export function prefilter(text, kit) {
   const offsets = [0];
   for (const ln of rawLines) offsets.push(offsets[offsets.length - 1] + ln.length + 1);
 
+  // A blanked line keeps its newline but loses its characters, so these
+  // offsets differ from `offsets` after the first reference line.
+  const blankedOffsets = [0];
+  for (const ln of lines) blankedOffsets.push(blankedOffsets[blankedOffsets.length - 1] + ln.length + 1);
+
   const windows = [];
   for (let i = 0; i < lines.length; i += 1) {
     if (!keepsLine(lines[i])) continue;
@@ -115,7 +105,66 @@ export function prefilter(text, kit) {
       end: offsets[hi - 1] + rawLines[hi - 1].length,
       line: i,
       text: lines.slice(lo, hi).join('\n'),
+      startLine: lo,
+      endLine: hi - 1,
+      docStart: blankedOffsets[lo],
     });
   }
-  return windows;
+  return {
+    spec, lines, rawLines, offsets, blankedOffsets, windows,
+  };
+}
+
+/**
+ * Select the text a document offers to the pattern and the model.
+ *
+ * A window carries the lines around a candidate line, because a result can
+ * be split by a line break: on the clean corpus 18.4% of results are
+ * separated from their p-value by at least one line break. The window grows
+ * past the fixed line count until it holds about as much text as the window
+ * the model was trained on, because a fixed line count is not a fixed amount
+ * of context once a different PDF engine breaks lines at a different width.
+ *
+ * @param {string} text
+ * @param {{spec: {prefilter: object, normalize: object}}} kit From `loadKit`.
+ * @returns {Array<{start: number, end: number, line: number, text: string,
+ *   startLine: number, endLine: number, docStart: number}>}
+ *   `start` and `end` are character offsets into `text`. `line` is the index
+ *   of the candidate line that made the filter keep this window. `docStart`
+ *   is the offset of the window's first character over the lines after
+ *   reference blanking, which is the coordinate the dedup rule counts in.
+ */
+export function prefilter(text, kit) {
+  return scan(text, kit).windows;
+}
+
+/**
+ * What the model reads, as the spec's `unit` says. With `"passage"`,
+ * windows that overlap or touch merge into one run of lines, so every
+ * character is read once. Any other value returns the windows unchanged.
+ * Port of `Prefilter.units`.
+ */
+export function units(text, kit) {
+  const {
+    spec, lines, rawLines, offsets, blankedOffsets, windows,
+  } = scan(text, kit);
+  if ((spec.unit ?? 'window') !== 'passage') return windows;
+
+  // Array.prototype.sort is stable, as the reference's sorted() is.
+  const ordered = [...windows].sort((a, b) => a.startLine - b.startLine);
+  const runs = [];
+  for (const w of ordered) {
+    const last = runs[runs.length - 1];
+    if (last && w.startLine <= last[1] + 1) last[1] = Math.max(last[1], w.endLine);
+    else runs.push([w.startLine, w.endLine]);
+  }
+  return runs.map(([lo, hi]) => ({
+    start: offsets[lo],
+    end: offsets[hi] + rawLines[hi].length,
+    line: lo,
+    text: lines.slice(lo, hi + 1).join('\n'),
+    startLine: lo,
+    endLine: hi,
+    docStart: blankedOffsets[lo],
+  }));
 }

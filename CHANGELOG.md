@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Spec version 2. `kit/spec/prefilter.json` now has `"unit": "passage"`:
+  `units(text, kit)` merges overlapping and touching windows into one
+  passage, and `checkText` reads each passage once. `prefilter` still
+  returns windows.
+- The dedup rule changed. A find is a duplicate when the character interval
+  of its statistic overlaps the interval of a find already emitted, not when
+  its rounded value repeats. Two results with the same value at different
+  places are both kept. Every result carries `statistic_span`. The rule is
+  `dedup_rule` in `kit/parity/cases.json`.
+- A find with no test name is a fragment. `checkText` and `checkPdf` return
+  it in `fragments`, with no `verdict`, `computed_p`, `reason` or `missing`,
+  and never check it. `toMarkdown` and the demo page list fragments after the
+  results, under a line that says a fragment has no test name and cannot be
+  checked. `toJSON` carries them. `toCSV` does not.
+
 - `demo/`: the page now takes up to ten PDFs at once, from a real
   `[ choose PDFs ]` button or the drop zone, checked one at a time with a
   status line per file (`onProgress` reading its pages) and one summary

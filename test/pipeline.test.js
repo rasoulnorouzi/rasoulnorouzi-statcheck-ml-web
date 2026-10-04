@@ -22,9 +22,10 @@ import { repair } from '../src/repair.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const kitDir = path.join(here, '..', 'kit');
-const cases = JSON.parse(
+const parity = JSON.parse(
   fs.readFileSync(path.join(kitDir, 'parity', 'cases.json'), 'utf8'),
-).sections.pipeline;
+);
+const cases = parity.sections.pipeline;
 
 function expectField(got, want) {
   if (typeof want === 'number' && typeof got === 'number') {
@@ -45,15 +46,36 @@ describe('pipeline', () => {
 
   for (const c of cases) {
     it(c.name, async () => {
-      const { results } = await checkText(c.text, kit, model);
+      const { results, fragments } = await checkText(c.text, kit, model);
       expect(results.length).toBe(c.expected.length);
       for (let i = 0; i < c.expected.length; i += 1) {
         const want = c.expected[i];
         const got = results[i];
         for (const key of Object.keys(want)) expectField(got[key], want[key]);
       }
+      expect(fragments.length).toBe(c.expected_fragments.length);
+      for (let i = 0; i < c.expected_fragments.length; i += 1) {
+        const want = c.expected_fragments[i];
+        const got = fragments[i];
+        for (const key of Object.keys(want)) expectField(got[key], want[key]);
+        for (const key of ['verdict', 'computed_p', 'reason', 'missing']) {
+          expect(key in got).toBe(false);
+        }
+      }
     });
   }
+
+  it('reads the dedup rule from the parity file', () => {
+    expect(typeof parity.dedup_rule).toBe('string');
+    expect(parity.dedup_rule).toContain('overlaps');
+  });
+
+  it('keeps two results with the same value at different places', async () => {
+    const c = cases.find((doc) => doc.name === 'dedup-same-statistic');
+    const { results } = await checkText(c.text, kit, model);
+    expect(results.map((r) => r.statistic)).toEqual([2.1, 2.1]);
+    expect(results[0].statistic_span).not.toEqual(results[1].statistic_span);
+  });
 
   it('adds quote, offset and context to every result, without disturbing the parity fields', async () => {
     const c = cases.find((doc) => doc.expected.length > 0);

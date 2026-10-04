@@ -65,9 +65,18 @@ tag per character, decoded with the same Viterbi pass as the Python and R
 ports when the model carries a CRF head.
 
 `checkText(text, kit, model)` runs the whole pipeline: normalise, repair,
-prefilter, then per window the pattern first and the model after it, adding
+prefilter, then per passage the pattern first and the model after it, adding
 only what the pattern did not already find, then the p-value check. Pass
 `null` in place of `model` to run the pattern alone.
+
+The prefilter merges overlapping windows into passages, so the model reads
+each character once (`unit` in `kit/spec/prefilter.json`; `units(text, kit)`
+returns them). A find is a duplicate when the character interval of its
+statistic overlaps one already found; the rule is `dedup_rule` in
+`kit/parity/cases.json`. The call returns `{results, fragments, stages}`.
+Each result has a `statistic_span` and a `verdict`. A find with no test name
+is a fragment: it sits in `fragments`, has the keys of a result without
+`verdict`, `computed_p`, `reason` and `missing`, and is never checked.
 
     import { loadKit, loadModel, checkText } from 'statcheck-ml';
 
@@ -109,7 +118,10 @@ PDF, so several documents can go into one report. `kit` is
 `{version, model, mother_commit}`, printed into the JSON header and the
 Markdown trailer. The CSV has one row per result (RFC 4180 quoting, CRLF
 line endings), and the Markdown has one heading and one table per document,
-with the quotes and their context in a numbered list under the table.
+with the quotes and their context in a numbered list under the table. When
+a document has fragments, the Markdown lists them after the results, under a
+line that says a fragment has no test name and cannot be checked. The CSV
+holds checked results only.
 
 ## Kit
 
@@ -139,7 +151,7 @@ itself does. See `docs/TUTORIAL.md` section 6 for the rule in full.
     npm test
 
 The tests load the kit and check its hashes. Then they run every case from
-`kit/parity/cases.json` — normalise, extract, prefilter, repair, model,
+`kit/parity/cases.json` — normalise, extract, prefilter, units, repair, model,
 group and the whole pipeline — against this package's code. The p-value
 cases must agree with the Python reference to 1 part in 1e9. The special
 functions must agree with SciPy to 1 part in 1e12. The model's raw logits

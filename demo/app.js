@@ -16,7 +16,7 @@
 import * as ort from 'onnxruntime-web';
 import * as pdfjs from './vendor/pdf.min.mjs';
 import {
-  loadKit, loadModel, checkPdf, toJSON, toCSV, toMarkdown,
+  loadKit, loadModel, checkPdf, toJSON, toCSV, toMarkdown, FRAGMENT_NOTE,
 } from '../src/index.js';
 import {
   MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
@@ -170,6 +170,50 @@ function buildResultsTable(results) {
   return table;
 }
 
+/**
+ * The fragments of one document, under a line that says why they have no
+ * verdict. A fragment is a statistic the reader finds beside no test name.
+ */
+function buildFragmentsBlock(fragments) {
+  const block = document.createElement('div');
+  const note = document.createElement('p');
+  note.className = 'dim';
+  note.textContent = `fragments: ${fragments.length}. ${FRAGMENT_NOTE}`;
+  block.appendChild(note);
+
+  const table = document.createElement('table');
+  table.className = 'results-table';
+  table.innerHTML = '<thead><tr><th class="num">page</th><th class="num">line</th>'
+    + '<th class="num">statistic</th><th>df</th><th>op</th>'
+    + '<th class="num">reported p</th><th>source</th></tr></thead>';
+  const tbody = document.createElement('tbody');
+  for (const r of fragments) {
+    const row = document.createElement('tr');
+    row.className = 'result-row';
+    row.append(
+      td(formatNumber(r.page), true),
+      td(formatNumber(r.line), true),
+      td(formatNumber(r.statistic), true),
+      td(formatDf(r.df1, r.df2)),
+      td(r.p_operator ?? ''),
+      td(formatNumber(r.p_value), true),
+      td(r.source ?? ''),
+    );
+    tbody.appendChild(row);
+
+    const detail = document.createElement('tr');
+    detail.className = 'detail-row';
+    const cell = document.createElement('td');
+    cell.colSpan = 7;
+    cell.textContent = `\`${r.quote}\` — ${r.context}`;
+    detail.appendChild(cell);
+    tbody.appendChild(detail);
+  }
+  table.appendChild(tbody);
+  block.appendChild(table);
+  return block;
+}
+
 function renderSummary(docReports) {
   summaryBody.textContent = '';
   for (const doc of docReports) {
@@ -226,6 +270,7 @@ function renderReports(docReports) {
     } else {
       section.appendChild(buildResultsTable(doc.results));
     }
+    if ((doc.fragments ?? []).length > 0) section.appendChild(buildFragmentsBlock(doc.fragments));
     reportsContainer.appendChild(section);
   }
 }
@@ -309,6 +354,7 @@ async function runFiles(accepted) {
         titleSource: outcome.titleSource,
         pages: outcome.pages,
         results: outcome.results,
+        fragments: outcome.fragments,
         stages: outcome.stages,
         mode,
       });
@@ -321,6 +367,7 @@ async function runFiles(accepted) {
         titleSource: null,
         pages: null,
         results: [],
+        fragments: [],
         stages: {},
         mode,
         error: err.message,

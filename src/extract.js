@@ -19,16 +19,16 @@ const NUM = String.raw`-?\d*\.?\d+`;
 const PATTERNS = {
   t: new RegExp(
     String.raw`\bt\s*\(\s*(?<df1>${NUM})\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gid'),
   f: new RegExp(
     String.raw`\bF\s*\(\s*(?<df1>${NUM})\s*,\s*(?<df2>${NUM})\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gid'),
   r: new RegExp(
     String.raw`\br\s*\(\s*(?<df1>${NUM})\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gid'),
   z: new RegExp(
     String.raw`\bz\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gid'),
   // `\b` in JavaScript only knows the ASCII word characters, so it does not
   // mark a boundary before χ the way Python's Unicode-aware `\b` does: with a
   // space on both sides, JS's `\b` never fires next to a Greek letter at all.
@@ -38,10 +38,10 @@ const PATTERNS = {
   chi2: new RegExp(
     String.raw`(?<![\p{L}\p{N}_])(?:χ\s*2|χ2|chi2|X2|c2)\s*\(\s*(?<df1>${NUM})` +
     String.raw`(?:\s*,\s*N\s*[=<>]\s*(?<n>[\d,]+))?\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'giu'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'giud'),
   q: new RegExp(
     String.raw`\bQ(?:w|b)?\s*\(\s*(?<df1>${NUM})\s*\)\s*(?<sop>[=<>])\s*(?<stat>${NUM})` +
-    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gi'),
+    String.raw`\s*,\s*p\s*(?<pop>[=<>])\s*(?<p>${NUM})`, 'gid'),
 };
 
 /**
@@ -65,7 +65,8 @@ const PATTERNS = {
  * @param {object} [kit] From `loadKit`. Unused by this stage.
  * @returns {Array<{test_type: string, statistic: string, df1: ?string,
  *   df2: ?string, p_operator: string, p_value: string, start: number,
- *   end: number}>}
+ *   end: number, statStart: number, statEnd: number}>}
+ *   `statStart` and `statEnd` locate the statistic value inside `text`.
  */
 export function extractWithSpans(text, kit) {
   const found = [];
@@ -83,6 +84,8 @@ export function extractWithSpans(text, kit) {
         p_value: g.p,
         start: m.index,
         end: m.index + m[0].length,
+        statStart: m.indices.groups.stat[0],
+        statEnd: m.indices.groups.stat[1],
       });
     }
   }

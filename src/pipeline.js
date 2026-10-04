@@ -2,17 +2,17 @@
 //
 // This is the JavaScript port of `statcheck_ml.pipeline.Pipeline.run_text`,
 // with every stage this package now has, in the order that is the design:
-// normalise, repair, prefilter, then per window the pattern first and the
+// normalise, repair, prefilter, then per unit the pattern first and the
 // model after it, then the p-value check. Every stage's rules live in the
 // shared kit; this file only calls them in order.
 //
-// The pattern goes first in each window because its precision is near 1.000,
+// The pattern goes first in each unit because its precision is near 1.000,
 // so an existing statcheck user sees no regression; the model adds only what
-// the pattern did not already find in that window.
+// the pattern did not already find in that unit.
 
 import { createNormalizer } from './normalize.js';
 import { repair } from './repair.js';
-import { prefilter } from './prefilter.js';
+import { prefilter, units as prefilterUnits } from './prefilter.js';
 import { extractWithSpans } from './extract.js';
 import {
   groupSpans, tagsToSpans, operatorFromParts, spanOf,
@@ -52,6 +52,7 @@ function findWithPattern(windowText, line) {
     line,
     spanStart: e.start,
     spanEnd: e.end,
+    statSpan: [e.statStart, e.statEnd],
   }));
 }
 
@@ -62,7 +63,7 @@ async function findWithModel(windowText, line, model) {
   const spans = tagsToSpans(tags.slice(0, text.length));
 
   const out = [];
-  for (const [parts, groupedSpans] of groupSpans(text, spans)) {
+  for (const [parts, groupedSpans, firstSpans] of groupSpans(text, spans)) {
     const statistic = parseNumber(parts.STAT);
     if (statistic == null) continue;
     const [spanStart, spanEnd] = spanOf(groupedSpans);
@@ -79,6 +80,7 @@ async function findWithModel(windowText, line, model) {
       line,
       spanStart,
       spanEnd,
+      statSpan: firstSpans.STAT,
     });
   }
   return out;
@@ -161,13 +163,23 @@ function sentenceContext(scannedText, quoteStart, quoteEnd) {
  * it.
  */
 function withSpan(found, window, scannedText) {
-  const { spanStart, spanEnd, ...rest } = found;
+  const {
+    spanStart, spanEnd, statSpan, ...rest
+  } = found;
   const quote = window.text.slice(spanStart, spanEnd).trim();
   const offset = window.start + spanStart;
   const context = sentenceContext(scannedText, offset, offset + quote.length);
+  // The dedup rule counts in blanked-document coordinates, not in `offset`'s.
+  const statistic_span = [statSpan[0] + window.docStart, statSpan[1] + window.docStart];
   return {
-    ...rest, quote, offset, context,
+    ...rest, quote, offset, context, statistic_span,
   };
+}
+
+/** A find with no test name: kept, shown, never checked. */
+function asFragment(found) {
+  const { statisticText, reportedPText, ...rest } = found;
+  return rest;
 }
 
 function checkOne(found) {
@@ -218,7 +230,9 @@ export const MODES = {
  * @param {?{session, charmap, decoder}} [model] From `loadModel`. Omitted, a
  *   window is read by the pattern alone.
  * @param {{mode?: 'hybrid'|'pattern'|'model'}} [options]
- * @returns {Promise<{results: Array<object>, stages: object}>}
+ * @returns {Promise<{results: Array<object>, fragments: Array<object>,
+ *   stages: object}>} `fragments` holds the finds with no test name: a result
+ *   without `verdict`, `computed_p`, `reason` and `missing`.
  */
 export async function checkText(text, kit, model, { mode = 'hybrid' } = {}) {
   const finders = MODES[mode];
@@ -233,38 +247,75 @@ export async function checkText(text, kit, model, { mode = 'hybrid' } = {}) {
   stages.repair = { replacements };
 
   const windows = prefilter(fixed, kit);
-  stages.prefilter = { lines: fixed.split('\n').length, windows_kept: windows.length };
+  const units = prefilterUnits(fixed, kit);
+  stages.prefilter = {
+    lines: fixed.split('\n').length,
+    windows_kept: windows.length,
+    units_kept: units.length,
+    characters_read: units.reduce((sum, u) => sum + u.text.length, 0),
+  };
 
+  // The dedup rule is `dedup_rule` in kit/parity/cases.json: a find is a
+  // duplicate when its statistic interval overlaps one already emitted.
   const found = [];
-  const seen = new Set();
+  const taken = [];
+  const seenValues = new Set();
   let byPattern = 0;
   let byModel = 0;
+  let fallback = 0;
 
-  for (const w of windows) {
-    for (const f of finders.pattern ? findWithPattern(w.text, w.line) : []) {
-      const key = f.statistic != null ? roundTo3(f.statistic) : null;
-      if (seen.has(key)) continue;
-      seen.add(key);
-      // A result found in more than one window (they overlap on purpose)
-      // keeps the quote/offset/context of the window that found it first,
-      // because `withSpan` only ever runs once per key, right here.
-      found.push(withSpan(f, w, fixed));
+  // A find without an interval falls back to its value rounded to three
+  // decimals. The pattern and the model always give an interval, so the
+  // fallback stays for parity with the reference, not for use.
+  const valueKey = (f) => (f.statistic != null ? roundTo3(f.statistic) : null);
+
+  function isDuplicate(f) {
+    if (f.statistic_span != null) {
+      const [s, e] = f.statistic_span;
+      return taken.some(([ts, te]) => s < te && ts < e);
+    }
+    return seenValues.has(valueKey(f));
+  }
+
+  function remember(f) {
+    if (f.statistic_span != null) {
+      taken.push(f.statistic_span);
+    } else {
+      fallback += 1;
+      seenValues.add(valueKey(f));
+    }
+  }
+
+  for (const u of units) {
+    // Pattern first, then the model, in each unit, in document order: the
+    // first find at a place stays, and the order sets the credited source.
+    const hits = finders.pattern ? findWithPattern(u.text, u.line) : [];
+    for (const raw of hits) {
+      const f = withSpan(raw, u, fixed);
+      if (isDuplicate(f)) continue;
+      remember(f);
+      found.push(f);
       byPattern += 1;
     }
-    // Windows are read one at a time, on purpose: the dedup set below must
-    // see the pattern's hits before the model's, in document order, or a
-    // result could be credited to the wrong source.
-    for (const f of await findWithModel(w.text, w.line, finders.model ? model : null)) {
-      const key = f.statistic != null ? roundTo3(f.statistic) : null;
-      if (key === null || seen.has(key)) continue;
-      seen.add(key);
-      found.push(withSpan(f, w, fixed));
+    for (const raw of await findWithModel(u.text, u.line, finders.model ? model : null)) {
+      const f = withSpan(raw, u, fixed);
+      if (isDuplicate(f)) continue;
+      remember(f);
+      found.push(f);
       byModel += 1;
     }
   }
-  stages.find = { by_pattern: byPattern, by_model: byModel };
 
-  const checked = found.map(checkOne);
+  const named = found.filter((f) => f.test_type);
+  const fragments = found.filter((f) => !f.test_type).map(asFragment);
+  stages.find = {
+    by_pattern: byPattern,
+    by_model: byModel,
+    value_key_fallback: fallback,
+    fragments: fragments.length,
+  };
+
+  const checked = named.map(checkOne);
   const verdicts = {};
   const notFound = {};
   for (const f of checked) {
@@ -275,7 +326,7 @@ export async function checkText(text, kit, model, { mode = 'hybrid' } = {}) {
   stages.check = verdicts;
   stages.not_found = notFound;
 
-  return { results: checked, stages };
+  return { results: checked, fragments, stages };
 }
 
 const MIN_QUOTE_SIGNATURE = 3;
@@ -337,7 +388,8 @@ function pageOf(quote, pageTexts) {
  * @param {{pdfjs: object, onProgress?: (page: number, total: number) => void,
  *   fileName?: ?string}} [pdfOptions] Forwarded to `pdfToText`; `pdfjs` is
  *   required. `fileName` is carried through to the returned shape as-is.
- * @returns {Promise<{results: Array<object>, stages: object, pages: number,
+ * @returns {Promise<{results: Array<object>, fragments: Array<object>,
+ *   stages: object, pages: number,
  *   title: ?string, titleSource: ?('metadata'|'largest-font'),
  *   fileName: ?string}>}
  */
@@ -346,9 +398,9 @@ export async function checkPdf(data, kit, model, pdfOptions = {}) {
   const {
     text, pages, pageTexts, title, titleSource,
   } = await pdfToText(data, pdfOptions);
-  const { results, stages } = await checkText(text, kit, model, { mode });
-  const placed = results.map((r) => ({ ...r, page: pageOf(r.quote, pageTexts) }));
+  const { results, fragments, stages } = await checkText(text, kit, model, { mode });
+  const place = (r) => ({ ...r, page: pageOf(r.quote, pageTexts) });
   return {
-    results: placed, stages, pages, title, titleSource, fileName, mode,
+    results: results.map(place), fragments: fragments.map(place), stages, pages, title, titleSource, fileName, mode,
   };
 }

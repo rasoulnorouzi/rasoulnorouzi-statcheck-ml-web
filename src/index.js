@@ -7,9 +7,11 @@ export {
 } from './pvalue.js';
 export { logGamma, regIncBeta, regIncGammaUpper, erfc } from './special.js';
 export { loadModel, tag } from './model.js';
-export { prefilter } from './prefilter.js';
+export { prefilter, units } from './prefilter.js';
 export { repair } from './repair.js';
 export { group, spanOf } from './group.js';
 export { checkText, MODES, checkPdf } from './pipeline.js';
 export { pdfToText } from './pdf.js';
-export { toJSON, toCSV, toMarkdown } from './report.js';
+export {
+  toJSON, toCSV, toMarkdown, FRAGMENT_NOTE,
+} from './report.js';

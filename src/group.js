@@ -78,7 +78,10 @@ export function tagsToSpans(tags) {
  *
  * @param {string} text
  * @param {Array<[number, number, string]>} spans
- * @returns {Array<[Object<string,string>, Array<[number, number]>]>}
+ * A third element maps each entity to the span of its first occurrence, for a
+ * caller that needs where one part sits, such as the statistic value.
+ *
+ * @returns {Array<[Object<string,string>, Array<[number, number]>, Object<string,[number, number]>]>}
  */
 export function groupSpans(text, spans) {
   const ordered = [...spans].sort((a, b) => {
@@ -90,23 +93,29 @@ export function groupSpans(text, spans) {
   const results = [];
   let current = null;
   let currentSpans = [];
+  let currentFirst = {};
 
   for (const [start, end, label] of ordered) {
     const startsNewResult = label === 'TEST'
       || (label === 'STAT' && current !== null && Object.hasOwn(current, 'STAT'));
     if (startsNewResult) {
-      if (current !== null) results.push([current, currentSpans]);
+      if (current !== null) results.push([current, currentSpans, currentFirst]);
       current = {};
       currentSpans = [];
+      currentFirst = {};
     }
     if (current === null) {
       current = {};
       currentSpans = [];
+      currentFirst = {};
     }
-    if (!Object.hasOwn(current, label)) current[label] = text.slice(start, end);
+    if (!Object.hasOwn(current, label)) {
+      current[label] = text.slice(start, end);
+      currentFirst[label] = [start, end];
+    }
     currentSpans.push([start, end]);
   }
-  if (current !== null) results.push([current, currentSpans]);
+  if (current !== null) results.push([current, currentSpans, currentFirst]);
   return results;
 }
 

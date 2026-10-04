@@ -50,6 +50,8 @@ function csvRowsFor(doc) {
 
 /**
  * `docReports` as one CSV file, one row per result, CRLF line endings.
+ * Fragments are not rows: the columns are the columns of a checked result,
+ * and a fragment has no verdict. They stay in the JSON and Markdown reports.
  *
  * `kit` is accepted for the same `(docReports, kit)` shape as `toMarkdown`
  * and `toJSON`, but a CSV row carries no kit line of its own — that
@@ -114,6 +116,17 @@ function markdownQuoteList(results) {
   return results.map((r, i) => `${i + 1}. \`${r.quote}\` — ${r.context}`).join('\n');
 }
 
+/** The line that tells a reader why a fragment has no verdict. */
+export const FRAGMENT_NOTE = 'A fragment has no test name and cannot be checked.';
+
+function markdownFragmentTable(fragments) {
+  const header = '| page | line | statistic | p reported | source |';
+  const rule = '|---|---|---|---|---|';
+  const rows = fragments.map((r) => `| ${escapeCell(r.page ?? '')} | ${escapeCell(r.line)} | `
+    + `${escapeCell(r.statistic)} | ${escapeCell(r.p_value ?? '')} | ${escapeCell(r.source)} |`);
+  return [header, rule, ...rows].join('\n');
+}
+
 function markdownDoc(doc) {
   const heading = doc.title || doc.fileName || 'Untitled document';
   const parts = [
@@ -126,6 +139,11 @@ function markdownDoc(doc) {
     parts.push('', markdownTable(doc.results), '', markdownQuoteList(doc.results));
   } else {
     parts.push('', 'No results found.');
+  }
+  const fragments = doc.fragments ?? [];
+  if (fragments.length > 0) {
+    parts.push('', `Fragments: ${fragments.length}. ${FRAGMENT_NOTE}`, '',
+      markdownFragmentTable(fragments), '', markdownQuoteList(fragments));
   }
   return parts.join('\n');
 }
