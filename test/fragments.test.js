@@ -80,4 +80,16 @@ describe('fragments', () => {
     }], {});
     expect(csv.trim().split('\r\n').length).toBe(2);
   });
+
+  it('reports the line of the statistic, not the first line of the passage', async () => {
+    // Line 2 (0-based) holds the statistic; the fragment's find sits on line 1.
+    const passage = [
+      'The participants were recruited from the pool: 30 women, 20 men.',
+      'The difference was 2.31, p = .02.',
+      'Then t(28) = 4.50, p < .001.',
+    ].join('\n');
+    const { results, fragments } = await checkText(passage, kit, {}, { mode: 'hybrid' });
+    expect(fragments.map((f) => f.line)).toEqual([1]);
+    expect(results.map((r) => r.line)).toEqual([2]);
+  });
 });

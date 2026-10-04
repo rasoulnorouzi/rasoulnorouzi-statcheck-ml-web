@@ -171,8 +171,12 @@ function withSpan(found, window, scannedText) {
   const context = sentenceContext(scannedText, offset, offset + quote.length);
   // The dedup rule counts in blanked-document coordinates, not in `offset`'s.
   const statistic_span = [statSpan[0] + window.docStart, statSpan[1] + window.docStart];
+  // `line_rule` in kit/parity/cases.json. Counting newlines in the unit text
+  // is exact because a blanked reference line keeps its newline.
+  const before = window.text.slice(0, statSpan[0]);
+  const line = window.startLine + before.split('\n').length - 1;
   return {
-    ...rest, quote, offset, context, statistic_span,
+    ...rest, line, quote, offset, context, statistic_span,
   };
 }
 

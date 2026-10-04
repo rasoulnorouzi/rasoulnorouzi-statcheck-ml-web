@@ -70,6 +70,30 @@ describe('pipeline', () => {
     expect(parity.dedup_rule).toContain('overlaps');
   });
 
+  it('reads the line rule from the parity file', () => {
+    expect(typeof parity.line_rule).toBe('string');
+    expect(parity.line_rule).toContain('0-based');
+  });
+
+  // The loop above compares whatever keys a case lists; this proves `line`
+  // is one of them, so a generator change cannot drop the check silently.
+  it('compares line on every result and fragment', async () => {
+    let compared = 0;
+    for (const c of cases) {
+      const { results, fragments } = await checkText(c.text, kit, model);
+      const pairs = [
+        ...c.expected.map((w, i) => [results[i], w]),
+        ...c.expected_fragments.map((w, i) => [fragments[i], w]),
+      ];
+      for (const [got, want] of pairs) {
+        expect('line' in want).toBe(true);
+        expect(got.line).toBe(want.line);
+        compared += 1;
+      }
+    }
+    expect(compared).toBeGreaterThan(0);
+  });
+
   it('keeps two results with the same value at different places', async () => {
     const c = cases.find((doc) => doc.name === 'dedup-same-statistic');
     const { results } = await checkText(c.text, kit, model);

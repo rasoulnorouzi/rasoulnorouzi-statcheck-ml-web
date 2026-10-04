@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `line` is now the 0-based line of the statistic value, for results and fragments, not the first line of the unit. The rule is `line_rule` in `kit/parity/cases.json`.
 - Spec version 2. `kit/spec/prefilter.json` now has `"unit": "passage"`:
   `units(text, kit)` merges overlapping and touching windows into one
   passage, and `checkText` reads each passage once. `prefilter` still

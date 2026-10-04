@@ -106,7 +106,8 @@ cannot be placed), plus `title`, `titleSource`, and a `fileName` taken from
 `pdfOptions.fileName`. Every result, from `checkText` or `checkPdf` alike,
 also carries `quote` (the exact source text), `offset` (its position in the
 text the pipeline scanned), and `context` (the sentence around it) — see
-`docs/TUTORIAL.md` section 5 for the fields in full.
+`docs/TUTORIAL.md` section 5 for the fields in full. `line` is the 0-based line
+of the statistic value in the repaired text, for results and fragments.
 
 ## Reports
 
