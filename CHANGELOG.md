@@ -18,7 +18,8 @@
   reason for its verdict on one line; `expand all` and `collapse all` sit above each
   table. A table wider than the screen scrolls inside its own box. The page is 120
   characters wide, not 96.
-- The footer credits statcheck to Michèle B. Nuijten and her colleagues in one line, and
+- The footer credits statcheck to Michèle B. Nuijten, the mother of statcheck, and her
+  colleagues in one line, and
   links the author's website, https://rasoulnorouzi.github.io, for software updates.
 - The demo has a day and night switch. It follows the system theme until the reader
   clicks, then keeps the choice in this browser.

@@ -176,6 +176,7 @@ describe.skipIf(!haveBrowser)('the demo page in a browser', () => {
   it('credits statcheck and its makers, and links the author for updates', async () => {
     const credit = await page.locator('#credit').textContent();
     expect(credit).toContain('Nuijten');
+    expect(credit).toContain('mother of statcheck');
     expect(credit).toContain('colleagues');
     expect(await page.locator('#author a').getAttribute('href')).toBe('https://rasoulnorouzi.github.io');
     expect(await page.locator('#author').textContent()).toContain('updates');
