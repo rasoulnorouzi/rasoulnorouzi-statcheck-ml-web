@@ -16,9 +16,23 @@
     --ok: #2f7d32; --bad: #a83232; --none: #777;
   }
   @media (prefers-color-scheme: dark) {
-    :root { --fg: #d6d6d6; --dim: #8a8a8a; --rule: #3a3a3a; --bg: #101010;
-            --ok: #7fd082; --bad: #e08080; --none: #9a9a9a; }
+    :root:not([data-theme="light"]) {
+      --fg: #d6d6d6; --dim: #8a8a8a; --rule: #3a3a3a; --bg: #101010;
+      --ok: #7fd082; --bad: #e08080; --none: #9a9a9a;
+    }
   }
+  /* A click on the theme switch sets data-theme, and it wins over the system. */
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --fg: #222; --dim: #777; --rule: #bbb; --bg: #fff;
+    --ok: #2f7d32; --bad: #a83232; --none: #777;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --fg: #d6d6d6; --dim: #8a8a8a; --rule: #3a3a3a; --bg: #101010;
+    --ok: #7fd082; --bad: #e08080; --none: #9a9a9a;
+  }
+  html, body { transition: background-color 0.45s ease, color 0.45s ease; }
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body {
@@ -87,7 +101,73 @@
   #reports { margin-bottom: 1rem; }
   footer { margin-top: 2.5rem; padding-top: 0.5rem; border-top: 1px solid var(--rule); color: var(--dim); }
   footer a, a { color: inherit; }
+
+  /* The theme switch: a night sky with a moon that rolls over and turns into
+     a sun. The page stays text; the switch is the one drawn object on it. */
+  .top { display: flex; align-items: center; justify-content: space-between; gap: 2ch; }
+  #theme-toggle {
+    display: inline-flex; align-items: center; gap: 1ch; color: var(--dim);
+    text-decoration: none; border-radius: 15px;
+  }
+  #theme-toggle:hover, #theme-toggle:focus-visible { text-decoration: none; color: var(--fg); }
+  #theme-toggle:focus-visible { outline: 1px dashed var(--fg); outline-offset: 3px; }
+  #theme-toggle .theme-label::before { content: "theme="; }
+  .track {
+    position: relative; width: 54px; height: 26px; border-radius: 13px; overflow: hidden;
+    border: 1px solid var(--rule);
+    background: linear-gradient(180deg, #8fd3ff 0%, #ffe9b0 100%);
+    transition: background 0.5s ease;
+  }
+  .knob {
+    position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: #ffc93c;
+    box-shadow: 0 0 0 3px rgba(255, 201, 60, 0.35), 0 0 12px 3px rgba(255, 160, 0, 0.55);
+    transition: transform 0.6s cubic-bezier(.5, -0.4, .3, 1.4), background 0.5s ease, box-shadow 0.5s ease;
+  }
+  .star {
+    position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff;
+    opacity: 0; transition: opacity 0.4s ease;
+  }
+  .star.s1 { top: 6px; left: 9px; } .star.s2 { top: 15px; left: 17px; } .star.s3 { top: 8px; left: 24px; }
+  .ray { position: absolute; width: 10px; height: 3px; border-radius: 2px; background: #fff; opacity: 0.8;
+         transition: opacity 0.4s ease, transform 0.6s ease; }
+  .ray.r1 { top: 6px; left: 30px; } .ray.r2 { top: 15px; left: 38px; width: 8px; }
+  #theme-toggle[aria-pressed="true"] .track { background: linear-gradient(180deg, #0b1026 0%, #26346b 100%); }
+  #theme-toggle[aria-pressed="true"] .knob {
+    transform: translateX(28px) rotate(320deg);
+    background: transparent; box-shadow: inset -6px 3px 0 0 #f2edd7, 0 0 8px 1px rgba(242, 237, 215, 0.25);
+  }
+  #theme-toggle[aria-pressed="true"] .star { opacity: 1; animation: twinkle 2.4s ease-in-out infinite; }
+  #theme-toggle[aria-pressed="true"] .star.s2 { animation-delay: 0.8s; }
+  #theme-toggle[aria-pressed="true"] .star.s3 { animation-delay: 1.6s; }
+  #theme-toggle[aria-pressed="true"] .ray { opacity: 0; transform: translateX(14px); }
+  @keyframes twinkle { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
+
+  /* One phosphor scan line runs down the screen when the theme changes,
+     the way an old terminal repaints. */
+  #scanline {
+    position: fixed; left: 0; right: 0; top: -6px; height: 3px; pointer-events: none; z-index: 9;
+    background: var(--ok); box-shadow: 0 0 14px 4px var(--ok); opacity: 0;
+  }
+  #scanline.sweep { animation: sweep 0.7s ease-in forwards; }
+  @keyframes sweep {
+    0% { top: -6px; opacity: 0.9; }
+    90% { opacity: 0.6; }
+    100% { top: 100vh; opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html, body, .track, .knob, .star, .ray { transition: none; }
+    #theme-toggle[aria-pressed="true"] .star { animation: none; }
+    #scanline.sweep { animation: none; }
+  }
 </style>
+<script>
+  // Before the first paint, so a saved choice never flashes the other theme.
+  try {
+    const saved = localStorage.getItem('statcheck-ml-theme');
+    if (saved === 'light' || saved === 'dark') document.documentElement.dataset.theme = saved;
+  } catch (e) { /* storage blocked: the system theme stands */ }
+</script>
 <script type="importmap">
 {
   "imports": {
@@ -97,7 +177,18 @@
 </script>
 </head>
 <body>
-<h1>statcheck-ml</h1>
+<div id="scanline" aria-hidden="true"></div>
+<div class="top">
+  <h1>statcheck-ml</h1>
+  <button id="theme-toggle" type="button" aria-pressed="false" aria-label="night theme">
+    <span class="theme-label">day</span>
+    <span class="track" aria-hidden="true">
+      <span class="star s1"></span><span class="star s2"></span><span class="star s3"></span>
+      <span class="ray r1"></span><span class="ray r2"></span>
+      <span class="knob"></span>
+    </span>
+  </button>
+</div>
 <p>Finds reported test results with a character model. Checks each p-value with
 closed-form arithmetic. The model never judges; the verdict is a computation.</p>
 <p class="dim">Runs in this tab. Nothing leaves your machine. Labels behind the
@@ -168,6 +259,7 @@ the data); read the numbers with that in mind.</p>
   </p>
 </footer>
 
+<script type="module" src="./theme.js"></script>
 <script type="module" src="./app.js"></script>
 </body>
 </html>

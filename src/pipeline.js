@@ -339,7 +339,7 @@ const MIN_QUOTE_SIGNATURE = 3;
  * `str` with everything but digits and `.` removed, plus an index mapping
  * each kept character back to its position in `str`.
  *
- * This is what `pageOf` below matches a result against a page on, rather
+ * This is what `placeOnPages` below matches a result against a page on, rather
  * than the quote text itself, because the quote and a page's raw text
  * rarely agree character for character: the quote's operator may have been
  * repaired, and whitespace and line breaks differ between a PDF engine's
@@ -360,17 +360,27 @@ function digitSignature(str) {
 }
 
 /**
- * The 1-based page a result's quote sits on, or `null` when it cannot be
- * placed: the quote's digit signature is too short to be specific to one
- * page, or no page's signature contains it at all.
+ * The 1-based page of every row, or `null` for a row that cannot be placed:
+ * its quote's digit signature is too short to be specific, or no page's
+ * signature contains it.
+ *
+ * A short quote such as `ts = 3.1` can also occur on an earlier page. The
+ * rows come in document order, so each row takes the first matching page at
+ * or after the page of the row before it, and only falls back to the first
+ * match anywhere when no later page matches.
  */
-function pageOf(quote, pageTexts) {
-  const quoteSig = digitSignature(quote).sig;
-  if (quoteSig.length < MIN_QUOTE_SIGNATURE) return null;
-  for (let i = 0; i < pageTexts.length; i += 1) {
-    if (digitSignature(pageTexts[i]).sig.includes(quoteSig)) return i + 1;
-  }
-  return null;
+export function placeOnPages(rows, pageTexts) {
+  const pageSigs = pageTexts.map((t) => digitSignature(t).sig);
+  let cursor = 0;
+  return rows.map((r) => {
+    const quoteSig = digitSignature(r.quote).sig;
+    if (quoteSig.length < MIN_QUOTE_SIGNATURE) return { ...r, page: null };
+    let i = pageSigs.findIndex((sig, k) => k >= cursor && sig.includes(quoteSig));
+    if (i < 0) i = pageSigs.findIndex((sig) => sig.includes(quoteSig));
+    if (i < 0) return { ...r, page: null };
+    cursor = i;
+    return { ...r, page: i + 1 };
+  });
 }
 
 /**
@@ -403,8 +413,7 @@ export async function checkPdf(data, kit, model, pdfOptions = {}) {
     text, pages, pageTexts, title, titleSource,
   } = await pdfToText(data, pdfOptions);
   const { results, fragments, stages } = await checkText(text, kit, model, { mode });
-  const place = (r) => ({ ...r, page: pageOf(r.quote, pageTexts) });
   return {
-    results: results.map(place), fragments: fragments.map(place), stages, pages, title, titleSource, fileName, mode,
+    results: placeOnPages(results, pageTexts), fragments: placeOnPages(fragments, pageTexts), stages, pages, title, titleSource, fileName, mode,
   };
 }

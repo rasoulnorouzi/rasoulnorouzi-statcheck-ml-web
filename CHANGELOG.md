@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1
+
+- `checkPdf` places a result on the first matching page at or after the page of the
+  result before it. A short quote such as `ts = 3.1` also occurs on earlier pages, and
+  the first match anywhere put a page-10 result on page 5.
+- The demo shows a character the PDF's font did not map as ⍰, explains it under the
+  table, and gives each result that is not consistent a `why:` line from its `reason`.
+  The verdict cell shows the reason on hover. Downloads are unchanged.
+- The demo has a day and night switch. It follows the system theme until the reader
+  clicks, then keeps the choice in this browser.
+
 ## 0.2.0
 
 - The kit ships the version 4 model `gate-none` (gru-crf, no noise, seed 0) from mother

@@ -20,7 +20,7 @@ import {
 } from '../src/index.js';
 import {
   MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
-  progressBar, queueLines, MODE_NOTES,
+  progressBar, queueLines, MODE_NOTES, UNMAPPED_NOTE, showUnmapped, hasUnmapped, whyLine,
 } from './support.js';
 
 // `loadKit`/`loadModel` build a fetch URL with `new URL(relPath, base)`,
@@ -156,13 +156,15 @@ function buildResultsTable(results) {
       td(r.source ?? ''),
     );
     row.children[8].className = `verdict verdict-${r.verdict ?? 'unknown'}`;
+    if (r.reason) row.children[8].title = r.reason;
     tbody.appendChild(row);
 
     const detail = document.createElement('tr');
     detail.className = 'detail-row';
     const cell = document.createElement('td');
     cell.colSpan = 10;
-    cell.textContent = `\`${r.quote}\` — ${r.context}`;
+    const why = whyLine(r);
+    cell.textContent = `\`${showUnmapped(r.quote)}\` — ${showUnmapped(r.context)}${why ? ` — ${why}` : ''}`;
     detail.appendChild(cell);
     tbody.appendChild(detail);
   }
@@ -205,7 +207,7 @@ function buildFragmentsBlock(fragments) {
     detail.className = 'detail-row';
     const cell = document.createElement('td');
     cell.colSpan = 7;
-    cell.textContent = `\`${r.quote}\` — ${r.context}`;
+    cell.textContent = `\`${showUnmapped(r.quote)}\` — ${showUnmapped(r.context)}`;
     detail.appendChild(cell);
     tbody.appendChild(detail);
   }
@@ -269,6 +271,12 @@ function renderReports(docReports) {
       section.appendChild(p);
     } else {
       section.appendChild(buildResultsTable(doc.results));
+      if ([...doc.results, ...(doc.fragments ?? [])].some((r) => hasUnmapped(r.quote) || hasUnmapped(r.context))) {
+        const note = document.createElement('p');
+        note.className = 'dim';
+        note.textContent = UNMAPPED_NOTE;
+        section.appendChild(note);
+      }
     }
     if ((doc.fragments ?? []).length > 0) section.appendChild(buildFragmentsBlock(doc.fragments));
     reportsContainer.appendChild(section);

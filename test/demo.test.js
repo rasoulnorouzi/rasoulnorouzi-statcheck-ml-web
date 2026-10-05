@@ -183,3 +183,32 @@ describe('queueLines', () => {
     expect(queueLines([{ name: 'b.pdf' }])).toEqual(['b.pdf  0 kB']);
   });
 });
+
+describe('demo/support, damaged characters and reasons', async () => {
+  const { showUnmapped, hasUnmapped, whyLine, UNMAPPED_MARK } = await import('../demo/support.js');
+
+  it('shows a control character as the mark and keeps tabs and newlines', () => {
+    expect(showUnmapped('ts \u0003 2.5,\tps \u0006 0.02\n')).toBe(`ts ${UNMAPPED_MARK} 2.5,\tps ${UNMAPPED_MARK} 0.02\n`);
+    expect(hasUnmapped('t(20) = 2.1')).toBe(false);
+    expect(hasUnmapped('t(20) \u0004 2.1')).toBe(true);
+  });
+
+  it('gives a reason line for a result that is not consistent', () => {
+    expect(whyLine({ verdict: 'consistent', reason: '' })).toBe('');
+    expect(whyLine({ verdict: 'undecidable', reason: 'no degrees of freedom found beside this result', missing: ['df1'], quote: 'ts = 2.5' }))
+      .toBe('why: no degrees of freedom found beside this result');
+  });
+
+  it('names the unmapped character as the likely operator', () => {
+    const r = { verdict: 'undecidable', reason: 'no operator before the p-value found beside this result', missing: ['p_operator'], quote: 't(212) \u0004 1.25, p \u0004 .26' };
+    expect(whyLine(r)).toContain(`the ${UNMAPPED_MARK} in the quote is likely the lost operator`);
+  });
+});
+
+describe('demo/support, theme', async () => {
+  const { nextTheme } = await import('../demo/support.js');
+  it('moves between the two themes', () => {
+    expect(nextTheme('dark')).toBe('light');
+    expect(nextTheme('light')).toBe('dark');
+  });
+});

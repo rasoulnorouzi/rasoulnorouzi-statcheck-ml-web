@@ -150,3 +150,41 @@ export const MODE_NOTES = {
   model: 'the character model alone, without the patterns. It reads damaged text, '
     + 'and finds almost what the hybrid finds: F1 0.921 on the holdout.',
 };
+
+/**
+ * A C0 control character other than tab and newline. A PDF font with no
+ * Unicode map leaves one where a glyph such as =, < or > stood, and a
+ * browser draws it as an empty box or not at all.
+ */
+const UNMAPPED = /[\u0000-\u0008\u000B-\u001F]/g;
+
+export const UNMAPPED_MARK = '⍰';
+
+export const UNMAPPED_NOTE = `${UNMAPPED_MARK} marks a character the PDF's font did not map to text. `
+  + 'It is often a lost =, < or >, which is why such a result can be undecidable.';
+
+/** `text` for display, with each unmapped character shown as `UNMAPPED_MARK`. */
+export function showUnmapped(text) {
+  return String(text ?? '').replace(UNMAPPED, UNMAPPED_MARK);
+}
+
+/** True when `text` holds an unmapped character. */
+export function hasUnmapped(text) {
+  return String(text ?? '').search(UNMAPPED) >= 0;
+}
+
+/**
+ * Why a result is not consistent, in one line for its detail row; empty for a
+ * consistent result. When the operator is missing and the quote holds an
+ * unmapped character, the line says that the character is the likely operator.
+ */
+export function whyLine(r) {
+  if (!r || !r.reason || r.verdict === 'consistent') return '';
+  const lostOperator = (r.missing ?? []).includes('p_operator') && hasUnmapped(r.quote);
+  return `why: ${r.reason}${lostOperator ? `; the ${UNMAPPED_MARK} in the quote is likely the lost operator` : ''}`;
+}
+
+/** The theme a click on the switch moves to. */
+export function nextTheme(current) {
+  return current === 'dark' ? 'light' : 'dark';
+}
