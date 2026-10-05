@@ -56,6 +56,20 @@ function findWithPattern(windowText, line) {
   }));
 }
 
+/**
+ * A number the PDF conversion split with spaces, such as `. 05` or `2 .37`:
+ * digits and points only, with whitespace between them. The model marks such
+ * a span as one value, so it is read as one (`split_number_rule` in the
+ * parity cases). The pattern never matches one.
+ */
+const SPLIT_NUMBER = /^-?[0-9.]+(?:\s+[0-9.]+)+$/;
+
+export function joinSplitNumber(text) {
+  if (text == null) return text;
+  const trimmed = text.trim();
+  return SPLIT_NUMBER.test(trimmed) ? trimmed.replace(/\s+/g, '') : text;
+}
+
 async function findWithModel(windowText, line, model) {
   if (model == null) return [];
   const text = modelInputText(windowText);
@@ -63,7 +77,8 @@ async function findWithModel(windowText, line, model) {
   const spans = tagsToSpans(tags.slice(0, text.length));
 
   const out = [];
-  for (const [parts, groupedSpans, firstSpans] of groupSpans(text, spans)) {
+  for (const [rawParts, groupedSpans, firstSpans] of groupSpans(text, spans)) {
+    const parts = Object.fromEntries(Object.entries(rawParts).map(([k, v]) => [k, joinSplitNumber(v)]));
     const statistic = parseNumber(parts.STAT);
     if (statistic == null) continue;
     const [spanStart, spanEnd] = spanOf(groupedSpans);

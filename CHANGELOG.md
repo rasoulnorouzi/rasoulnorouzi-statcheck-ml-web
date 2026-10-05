@@ -2,6 +2,9 @@
 
 ## 0.2.1
 
+- A value the model marks that the PDF split with spaces, such as `p <. 05`, is read as one
+  number (`.05`); it came out with no p-value and an undecidable verdict. The rule is
+  `split_number_rule` in `kit/parity/cases.json`. Kit from mother commit d366bec.
 - `checkPdf` places a result on the first matching page at or after the page of the
   result before it. A short quote such as `ts = 3.1` also occurs on earlier pages, and
   the first match anywhere put a page-10 result on page 5.
