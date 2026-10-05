@@ -36,7 +36,7 @@
   * { box-sizing: border-box; }
   html { background: var(--bg); }
   body {
-    max-width: 96ch; margin: 2rem auto; padding: 0 1rem;
+    max-width: 120ch; margin: 2rem auto; padding: 0 1rem;
     font: 14px/1.5 ui-monospace, "SF Mono", Consolas, "Liberation Mono", monospace;
     color: var(--fg); background: var(--bg);
   }
@@ -83,6 +83,23 @@
   table { border-collapse: collapse; margin-top: 1rem; width: 100%; }
   th, td { text-align: left; padding: 0.1rem 1ch 0.1rem 0; vertical-align: top; white-space: nowrap; }
   th { font-weight: normal; color: var(--dim); border-bottom: 1px solid var(--rule); }
+  /* The results tables: a light dashed line between columns, a faint line
+     between rows, and room inside each cell. */
+  .table-scroll { overflow-x: auto; }
+  .table-controls { margin: 0.75rem 0 0; }
+  .table-controls button { margin-right: 1ch; }
+  table.results-table { margin-top: 0.4rem; }
+  table.results-table th, table.results-table td {
+    padding: 0.3rem 1.2ch; border-right: 1px dashed var(--rule);
+  }
+  table.results-table th:last-child, table.results-table td:last-child { border-right: 0; }
+  table.results-table th { border-bottom: 1px solid var(--rule); }
+  table.results-table tr.result-row td { border-bottom: 1px solid color-mix(in srgb, var(--rule) 45%, transparent); }
+  tr.expandable { cursor: pointer; }
+  tr.expandable:hover td, tr.expandable:focus-visible td { background: color-mix(in srgb, var(--fg) 6%, transparent); }
+  tr.expandable:focus-visible { outline: 1px dashed var(--fg); outline-offset: -1px; }
+  tr.expandable td:first-child::before { content: "\25B8 "; color: var(--dim); }
+  tr.expandable[aria-expanded="true"] td:first-child::before { content: "\25BE "; }
   td.num, th.num { text-align: right; }
   #summary-table { margin-top: 1.25rem; }
   /* A long title or verdict tally wraps inside the column rather than
@@ -91,8 +108,8 @@
   .doc-section { border-top: 1px dashed var(--rule); margin-top: 1.75rem; padding-top: 0.75rem; }
   .doc-section h2 { font-size: 14px; font-weight: bold; margin: 0 0 0.25rem; }
   table.results-table tr.detail-row td {
-    white-space: pre-wrap; color: var(--dim);
-    border-bottom: 1px dashed var(--rule); padding-bottom: 0.6rem;
+    white-space: pre-wrap; color: var(--dim); border-right: 0;
+    border-bottom: 1px dashed var(--rule); padding: 0.4rem 1.2ch 0.7rem 3ch;
   }
   .verdict-consistent { color: var(--ok); }
   .verdict-inconsistent, .verdict-decision_error { color: var(--bad); }

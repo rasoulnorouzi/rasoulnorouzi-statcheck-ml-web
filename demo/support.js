@@ -158,7 +158,8 @@ export const MODE_NOTES = {
  */
 const UNMAPPED = /[\u0000-\u0008\u000B-\u001F]/g;
 
-export const UNMAPPED_MARK = '⍰';
+// U+FFFD, the sign for a character that could not be read; monospace fonts carry it.
+export const UNMAPPED_MARK = '\uFFFD';
 
 export const UNMAPPED_NOTE = `${UNMAPPED_MARK} marks a character the PDF's font did not map to text. `
   + 'It is often a lost =, < or >, which is why such a result can be undecidable.';
@@ -166,6 +167,14 @@ export const UNMAPPED_NOTE = `${UNMAPPED_MARK} marks a character the PDF's font 
 /** `text` for display, with each unmapped character shown as `UNMAPPED_MARK`. */
 export function showUnmapped(text) {
   return String(text ?? '').replace(UNMAPPED, UNMAPPED_MARK);
+}
+
+/**
+ * `text` on one line for a detail row: unmapped characters marked and every
+ * run of whitespace, the PDF's line breaks included, read as one space.
+ */
+export function oneLine(text) {
+  return showUnmapped(text).replace(/\s+/g, ' ').trim();
 }
 
 /** True when `text` holds an unmapped character. */

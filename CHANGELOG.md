@@ -8,9 +8,14 @@
 - `checkPdf` places a result on the first matching page at or after the page of the
   result before it. A short quote such as `ts = 3.1` also occurs on earlier pages, and
   the first match anywhere put a page-10 result on page 5.
-- The demo shows a character the PDF's font did not map as ⍰, explains it under the
+- The demo shows a character the PDF's font did not map as �, explains it under the
   table, and gives each result that is not consistent a `why:` line from its `reason`.
   The verdict cell shows the reason on hover. Downloads are unchanged.
+- The results tables are easier to read: one line per result, with a light dashed line
+  between columns. A click on a row, or Enter, opens its quote, its sentence and the
+  reason for its verdict on one line; `expand all` and `collapse all` sit above each
+  table. A table wider than the screen scrolls inside its own box. The page is 120
+  characters wide, not 96.
 - The demo has a day and night switch. It follows the system theme until the reader
   clicks, then keeps the choice in this browser.
 

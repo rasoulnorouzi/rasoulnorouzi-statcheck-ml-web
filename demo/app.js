@@ -20,7 +20,7 @@ import {
 } from '../src/index.js';
 import {
   MAX_FILES, DOWNLOAD_NAMES, selectFiles, formatVerdictCounts, sectionHeading,
-  progressBar, queueLines, MODE_NOTES, UNMAPPED_NOTE, showUnmapped, hasUnmapped, whyLine,
+  progressBar, queueLines, MODE_NOTES, UNMAPPED_NOTE, oneLine, hasUnmapped, whyLine,
 } from './support.js';
 
 // `loadKit`/`loadModel` build a fetch URL with `new URL(relPath, base)`,
@@ -164,12 +164,59 @@ function buildResultsTable(results) {
     const cell = document.createElement('td');
     cell.colSpan = 10;
     const why = whyLine(r);
-    cell.textContent = `\`${showUnmapped(r.quote)}\` — ${showUnmapped(r.context)}${why ? ` — ${why}` : ''}`;
+    cell.textContent = `\`${oneLine(r.quote)}\` — ${oneLine(r.context)}${why ? `\n${why}` : ''}`;
     detail.appendChild(cell);
     tbody.appendChild(detail);
+    makeExpandable(row, detail);
   }
   table.appendChild(tbody);
-  return table;
+  return withTableControls(table);
+}
+
+/**
+ * A result row opens and closes its detail row on a click, or on Enter or
+ * Space when it has the focus. The detail row stays in the page while it is
+ * closed, so a search in the page and a copy of the table still find it.
+ */
+function makeExpandable(row, detail) {
+  row.classList.add('expandable');
+  row.tabIndex = 0;
+  const set = (open) => {
+    row.setAttribute('aria-expanded', String(open));
+    detail.hidden = !open;
+  };
+  set(false);
+  row.addEventListener('click', () => set(detail.hidden));
+  row.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      set(detail.hidden);
+    }
+  });
+  row.setExpanded = set;
+}
+
+/** The table in a box that scrolls sideways, under an expand and collapse line. */
+function withTableControls(table) {
+  const box = document.createElement('div');
+  const controls = document.createElement('p');
+  controls.className = 'table-controls dim';
+  const button = (label, open) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = `[ ${label} ]`;
+    b.addEventListener('click', () => {
+      for (const row of table.querySelectorAll('tr.expandable')) row.setExpanded(open);
+    });
+    return b;
+  };
+  controls.append(button('expand all', true), ' ', button('collapse all', false),
+    ' click a row for its quote, its sentence and the reason for its verdict.');
+  const scroll = document.createElement('div');
+  scroll.className = 'table-scroll';
+  scroll.appendChild(table);
+  box.append(controls, scroll);
+  return box;
 }
 
 /**
@@ -207,12 +254,13 @@ function buildFragmentsBlock(fragments) {
     detail.className = 'detail-row';
     const cell = document.createElement('td');
     cell.colSpan = 7;
-    cell.textContent = `\`${showUnmapped(r.quote)}\` — ${showUnmapped(r.context)}`;
+    cell.textContent = `\`${oneLine(r.quote)}\` — ${oneLine(r.context)}`;
     detail.appendChild(cell);
     tbody.appendChild(detail);
+    makeExpandable(row, detail);
   }
   table.appendChild(tbody);
-  block.appendChild(table);
+  block.appendChild(withTableControls(table));
   return block;
 }
 

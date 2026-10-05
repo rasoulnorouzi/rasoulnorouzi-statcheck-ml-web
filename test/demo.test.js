@@ -185,10 +185,11 @@ describe('queueLines', () => {
 });
 
 describe('demo/support, damaged characters and reasons', async () => {
-  const { showUnmapped, hasUnmapped, whyLine, UNMAPPED_MARK } = await import('../demo/support.js');
+  const { showUnmapped, oneLine, hasUnmapped, whyLine, UNMAPPED_MARK } = await import('../demo/support.js');
 
   it('shows a control character as the mark and keeps tabs and newlines', () => {
     expect(showUnmapped('ts \u0003 2.5,\tps \u0006 0.02\n')).toBe(`ts ${UNMAPPED_MARK} 2.5,\tps ${UNMAPPED_MARK} 0.02\n`);
+    expect(oneLine('t(212) =\n\n12.65, p \u0004 .26 ')).toBe(`t(212) = 12.65, p ${UNMAPPED_MARK} .26`);
     expect(hasUnmapped('t(20) = 2.1')).toBe(false);
     expect(hasUnmapped('t(20) \u0004 2.1')).toBe(true);
   });
