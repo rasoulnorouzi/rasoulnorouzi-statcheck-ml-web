@@ -1,6 +1,6 @@
 {
   "name": "statcheck-ml",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Browser and npm port of statcheck-ml: an ONNX replacement for the statcheck extraction step.",
   "type": "module",
   "license": "GPL-3.0-or-later",

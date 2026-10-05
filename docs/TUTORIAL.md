@@ -35,17 +35,18 @@ right.
 Every label the model trained on is bronze. Three rater agents (Claude
 haiku, sonnet, and opus) annotated the training and holdout windows, a
 scripted consensus rule combined their readings, and an adjudicator agent
-settled what the rule could not. No person checked a label by hand, and
-there is no human gold set. Read every number below against that fact.
+settled what the rule could not. The model of kit 0.2.0 also trained on
+passages where three human coders were a fourth vote. Read every number below
+against that fact. On 169 human-coded papers (476 results) the hybrid finds 0.763 of the results with a test name; R statcheck finds 0.479 on the same text in passages and 0.237 from the PDF. The model was chosen after those papers were scored, so 0.763 is not a clean held-out score.
 
-From `results/REPORT.md`, Abstract and section 6, on a 200-document holdout
-this project never trained on:
+From `results/REPORT.md` (the statcheck rows) and `results/v4/shipped.json`
+(the cascade), on a 200-document holdout this project never trained on:
 
 | System | P | R | F1 [CI] |
 |---|---|---|---|
 | statcheck_raw | 0.983 | 0.183 | 0.308 [0.222, 0.385] |
 | statcheck_repaired | 0.993 | 0.467 | 0.636 [0.567, 0.698] |
-| cascade_gru-crf-s0 | 0.949 | 0.870 | 0.908 [0.875, 0.937] |
+| cascade (gate-none) | 0.963 | 0.885 | 0.923 [0.894, 0.947] |
 
 `statcheck_repaired` is the R package's own patterns after its own
 operator-repair pass, the strongest form of the regex baseline. The
@@ -651,7 +652,7 @@ model    {"by_pattern":0,"by_model":2} model:2.45:consistent  model:1.8:decision
 Here the repair stage restores the damaged operator before any finder runs, so
 the patterns read both results and the model has nothing to add. On damage the
 repair cannot undo, the patterns miss results and the model finds them; that is
-where `hybrid` beats `pattern` on the holdout, F1 0.908 against 0.636.
+where `hybrid` beats `pattern` on the holdout, F1 0.923 against 0.636.
 
 ## 6. Reading a verdict
 
@@ -763,9 +764,9 @@ on dev F1. From `kit/README.md`:
 
 | config | dev F1 | holdout F1 | holdout 95% CI |
 |---|---|---|---|
-| gru-crf | 0.927 | 0.904 | [0.871, 0.934] |
+| gru-crf | 0.937 | 0.921 | [0.891, 0.946] |
 
-0.904 is the model alone; section 1's 0.908 is the cascade — the model
+0.921 is the model alone; section 1's 0.923 is the cascade — the model
 plus the repaired pattern in front of it, which is what `checkText` and
 `checkPdf` actually run.
 

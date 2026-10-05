@@ -197,9 +197,9 @@ sentence it came from, and a verdict; the same is in the JSON, CSV and
 Markdown downloads.
 
 The page has three modes. `hybrid`, the default, runs statcheck's patterns first
-and lets the model add what they missed; it is the best on the holdout, F1 0.908.
+and lets the model add what they missed; it is the best on the holdout, F1 0.923.
 `pattern` runs statcheck's regular expressions alone, the classical method (F1
-0.636). `model` runs the character model alone (F1 0.904). Hover a mode, or read
+0.636). `model` runs the character model alone (F1 0.921). On 169 human-coded papers (476 results) the hybrid finds 0.763 of the results with a test name; R statcheck finds 0.479 on the same text in passages and 0.237 from the PDF. The model was chosen after those papers were scored, so 0.763 is not a clean held-out score. Hover a mode, or read
 the line under the choices, for the same explanation. In code the mode is an
 option: `checkText(text, kit, model, { mode: 'pattern' })`, and every report
 records it.

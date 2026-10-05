@@ -139,14 +139,14 @@ export function queueLines(files) {
 
 /**
  * What each mode does, in one line a reader can act on. The F1 values are
- * the holdout scores in the mother repository's `results/eval.json`:
- * `cascade_gru-crf-s0`, `statcheck_repaired` and `gru-crf-s0`.
+ * the bronze holdout scores in the mother repository: `results/v4/shipped.json`
+ * for the hybrid and the model, `results/eval.json` for `statcheck_repaired`.
  */
 export const MODE_NOTES = {
   hybrid: 'statcheck\'s patterns read each passage first; the model then adds what '
-    + 'they missed. Best on the holdout, F1 0.908. Use this one.',
+    + 'they missed. Best on the holdout, F1 0.923. Use this one.',
   pattern: 'statcheck\'s own regular expressions, the classical method. Precise, but '
     + 'blind to an operator the PDF conversion damaged. statcheck scored F1 0.636 on the holdout.',
   model: 'the character model alone, without the patterns. It reads damaged text, '
-    + 'and finds almost what the hybrid finds: F1 0.904 on the holdout.',
+    + 'and finds almost what the hybrid finds: F1 0.921 on the holdout.',
 };
