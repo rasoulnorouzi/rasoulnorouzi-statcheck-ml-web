@@ -173,11 +173,12 @@ describe.skipIf(!haveBrowser)('the demo page in a browser', () => {
     expect(csv.split('\r\n')[1].endsWith(',pattern')).toBe(true);
   }, 200_000);
 
-  it('credits statcheck and its makers', async () => {
+  it('credits statcheck and its makers, and links the author for updates', async () => {
     const credit = await page.locator('#credit').textContent();
     expect(credit).toContain('Nuijten');
-    expect(credit).toContain('mother of statcheck');
-    expect(credit).toContain('Epskamp');
+    expect(credit).toContain('colleagues');
+    expect(await page.locator('#author a').getAttribute('href')).toBe('https://rasoulnorouzi.github.io');
+    expect(await page.locator('#author').textContent()).toContain('updates');
   });
 
   it('reports no console error over the whole run', () => {

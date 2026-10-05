@@ -2,6 +2,8 @@
 
 ## 0.2.1
 
+- Kit from mother commit 9606a4f, with the parity case `nbsp-operators` (no-break spaces
+  around operators).
 - A value the model marks that the PDF split with spaces, such as `p <. 05`, is read as one
   number (`.05`); it came out with no p-value and an undecidable verdict. The rule is
   `split_number_rule` in `kit/parity/cases.json`. Kit from mother commit d366bec.
@@ -16,6 +18,8 @@
   reason for its verdict on one line; `expand all` and `collapse all` sit above each
   table. A table wider than the screen scrolls inside its own box. The page is 120
   characters wide, not 96.
+- The footer credits statcheck to Michèle B. Nuijten and her colleagues in one line, and
+  links the author's website, https://rasoulnorouzi.github.io, for software updates.
 - The demo has a day and night switch. It follows the system theme until the reader
   clicks, then keeps the choice in this browser.
 
